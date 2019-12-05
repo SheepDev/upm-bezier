@@ -42,20 +42,13 @@ public class BezierCurverEditor : Editor
 
   private void SceneGUI(SceneView view)
   {
-    Handles.BeginGUI();
-    if (GUI.Button(new Rect(10, 10, 150, 40), "Finish Edit Bezier"))
-    {
-      activeBezier.isEdit = false;
-      SceneView.duringSceneGui -= activeBezier.SceneGUI;
-      return;
-    }
-    Handles.EndGUI();
-
     OnSceneGUI();
   }
 
   private void OnSceneGUI()
   {
+    HandleGUI();
+
     var worldpoints = BezierUtility.LocalToWorldPoints(script.points, transform);
 
     DrawBezier(worldpoints);
@@ -84,6 +77,59 @@ public class BezierCurverEditor : Editor
     script.points = localPoints;
   }
 
+  public void HandleGUI()
+  {
+    Handles.BeginGUI();
+    var masterPosition = new Vector2(10, 10);
+    var masterWidth = 240;
+
+    // Draw Box
+    var boxRect = new Rect(masterPosition, new Vector2(masterWidth, 150));
+    var oldColor = GUI.color;
+    GUI.color = new Color(1, 1, 1, .3f);
+    GUI.Box(boxRect, "");
+    GUI.color = oldColor;
+
+    // Draw Name Object
+    var style = new GUIStyle();
+    style.fontStyle = FontStyle.Bold;
+    style.alignment = TextAnchor.MiddleCenter;
+    style.fontSize = 15;
+
+    var scriptName = script.name;
+    if (scriptName.Length > 20)
+    {
+      scriptName = scriptName.Substring(0, 20) + "...";
+    }
+
+    GUI.Label(new Rect(masterPosition + new Vector2(10, 10), new Vector2(masterWidth - 20, 20)), scriptName, style);
+    masterPosition.y += 20;
+
+    // Draw Bezier Type
+    if (GetActivePoint(out Point activePoint))
+    {
+      var startType = EditorGUI.EnumPopup(new Rect(masterPosition + new Vector2(10, 20), new Vector2(masterWidth - 20, 20)), "StartTangent Type", activePoint.StartTangentType);
+      activePoint.SetTangentType((TangentType)startType, TangentSpace.Start);
+      masterPosition.y += 30;
+      var endType = EditorGUI.EnumPopup(new Rect(masterPosition + new Vector2(10, 10), new Vector2(masterWidth - 20, 20)), "EndTangent Type", activePoint.EndTangentType);
+      activePoint.SetTangentType((TangentType)endType, TangentSpace.End);
+      masterPosition.y += 20;
+
+      SetActivePoint(activePoint);
+    }
+
+    // Draw Button
+    if (GUI.Button(new Rect(masterPosition + new Vector2((masterWidth / 2) - 75, 20), new Vector2(150, 40)), "Finish Edit Bezier"))
+    {
+      activeBezier.isEdit = false;
+      SceneView.duringSceneGui -= activeBezier.SceneGUI;
+      return;
+    }
+    masterPosition.y += 40;
+
+    Handles.EndGUI();
+  }
+
   public override void OnInspectorGUI()
   {
     if (activeBezier.curver != null)
@@ -96,6 +142,26 @@ public class BezierCurverEditor : Editor
   {
     activePointIndex = index;
     activeHandleType = HandleType.Point;
+  }
+
+  private bool GetActivePoint(out Point point)
+  {
+    if (activePointIndex.HasValue)
+    {
+      point = script.points[activePointIndex.Value];
+      return true;
+    }
+
+    point = default;
+    return false;
+  }
+
+  private void SetActivePoint(Point point)
+  {
+    if (activePointIndex.HasValue)
+    {
+      script.points[activePointIndex.Value] = point;
+    }
   }
 
   private void DrawBezier(Point[] points)
