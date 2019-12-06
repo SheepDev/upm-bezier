@@ -9,15 +9,12 @@ public class BezierCurverEditor : Editor
   private static BezierEdit activeBezier;
 
   private BezierCurver script;
-  private Transform transform;
-
   private int? activePointIndex;
   private HandleType activeHandleType;
 
   private void OnEnable()
   {
     script = target as BezierCurver;
-    transform = script.transform;
 
     activePointIndex = null;
     activeHandleType = HandleType.Point;
@@ -48,14 +45,11 @@ public class BezierCurverEditor : Editor
   private void OnSceneGUI()
   {
     HandleGUI();
+    DrawBezier(script.GetWorldPoints());
 
-    var worldpoints = BezierUtility.LocalToWorldPoints(script.points, transform);
-
-    DrawBezier(worldpoints);
-
-    for (int index = 0; index < worldpoints.Length; index++)
+    for (int index = 0; index < script.Lenght; index++)
     {
-      Point point = worldpoints[index];
+      var point = script.GetWorldPoint(index);
       var isActivePoint = activePointIndex.HasValue && index == activePointIndex;
 
       if (!isActivePoint)
@@ -65,16 +59,14 @@ public class BezierCurverEditor : Editor
       else
       {
         EditorGUI.BeginChangeCheck();
-        worldpoints[activePointIndex.Value] = DrawHandlerActivePoint(worldpoints[activePointIndex.Value]);
+        point = DrawHandlerActivePoint(point);
         if (EditorGUI.EndChangeCheck())
         {
-          Undo.RecordObject(target, "Set Points");
+          Undo.RecordObject(target, "Set Point: " + index);
+          script.SetWorldPoint(index, point);
         }
       }
     }
-
-    var localPoints = BezierUtility.WorldToLocalPoints(worldpoints, transform);
-    script.points = localPoints;
   }
 
   public void HandleGUI()
