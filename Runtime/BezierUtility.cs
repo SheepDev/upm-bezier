@@ -18,8 +18,8 @@ namespace Bezier
     public static Point LocalToWorldPoint(Point point, Transform transform)
     {
       var newPosition = transform.TransformPoint(point.Position);
-      var newStartTangent = transform.TransformPoint(point.StartTangentLocalPosition);
-      var newEndTangent = transform.TransformPoint(point.EndTangentLocalPosition);
+      var newStartTangent = transform.TransformPoint(point.StartTangentLocalPosition) - transform.position;
+      var newEndTangent = transform.TransformPoint(point.EndTangentLocalPosition) - transform.position;
 
       return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
     }
@@ -27,8 +27,8 @@ namespace Bezier
     public static Point WorldToLocalPoint(Point point, Transform transform)
     {
       var newPosition = transform.InverseTransformPoint(point.Position);
-      var newStartTangent = transform.InverseTransformPoint(point.StartTangentLocalPosition);
-      var newEndTangent = transform.InverseTransformPoint(point.EndTangentLocalPosition);
+      var newStartTangent = transform.InverseTransformPoint(point.StartTangentPosition) - newPosition;
+      var newEndTangent = transform.InverseTransformPoint(point.EndTangentPosition) - newPosition;
 
       return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
     }
