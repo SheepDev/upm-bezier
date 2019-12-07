@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 namespace Bezier
 {
@@ -21,7 +22,6 @@ namespace Bezier
     public TangentType StartTangentType => startTangent.type;
     public TangentType EndTangentType => endTangent.type;
 
-
     public Point(Vector3 position, Tangent startTangent, Tangent endTangent)
     {
       this.position = position;
@@ -34,7 +34,6 @@ namespace Bezier
       if (this.position != position)
       {
         this.position = position;
-        Update();
       }
     }
 
@@ -46,14 +45,14 @@ namespace Bezier
           if (startTangent.type != type)
           {
             startTangent.type = type;
-            Update();
+            UpdateAligned(ref startTangent, ref endTangent);
           }
           break;
         case TangentSpace.End:
           if (endTangent.type != type)
           {
             endTangent.type = type;
-            Update();
+            UpdateAligned(ref endTangent, ref startTangent);
           }
           break;
       }
@@ -69,14 +68,14 @@ namespace Bezier
           if (startTangent.position != newPosition)
           {
             startTangent.position = newPosition;
-            Update();
+            UpdateAligned(ref startTangent, ref endTangent);
           }
           break;
         case TangentSpace.End:
           if (endTangent.position != newPosition)
           {
             endTangent.position = newPosition;
-            Update();
+            UpdateAligned(ref endTangent, ref startTangent);
           }
           break;
       }
@@ -90,22 +89,69 @@ namespace Bezier
           if (startTangent.position != position)
           {
             startTangent.position = position;
-            Update();
+            UpdateAligned(ref startTangent, ref endTangent);
           }
           break;
         case TangentSpace.End:
           if (endTangent.position != position)
           {
             endTangent.position = position;
-            Update();
+            UpdateAligned(ref endTangent, ref startTangent);
           }
           break;
       }
     }
 
-    public void Update()
+    public void UpdateAligned(ref Tangent updated, ref Tangent other)
     {
-      Debug.Log("Updated");
+      if (other.type == TangentType.Aligned)
+      {
+        var magnitude = other.position.magnitude;
+        var direction = -updated.position.normalized;
+
+        other.position = direction * magnitude;
+      }
+    }
+
+    public void UpdateVector(TangentSpace space, Point referencePoint)
+    {
+      float magnitude = 0;
+      Vector3 direction = Vector3.one;
+
+      switch (space)
+      {
+        case TangentSpace.Start:
+          if (startTangent.type != TangentType.Vector)
+            return;
+          magnitude = startTangent.position.magnitude;
+          direction = (referencePoint.position - position).normalized;
+          startTangent.position = direction * magnitude;
+          break;
+        case TangentSpace.End:
+          if (endTangent.type != TangentType.Vector)
+            return;
+          magnitude = endTangent.position.magnitude;
+          direction = (referencePoint.position - position).normalized;
+          endTangent.position = direction * magnitude;
+          break;
+      }
+    }
+
+    public override bool Equals(object obj)
+    {
+      return obj is Point point &&
+             position == point.position &&
+             startTangent.Equals(point.startTangent) &&
+             endTangent.Equals(point.endTangent);
+    }
+
+    public override int GetHashCode()
+    {
+      var hashCode = -225962414;
+      hashCode *= -1521134295 + position.GetHashCode();
+      hashCode *= -1521134295 + startTangent.GetHashCode();
+      hashCode *= -1521134295 + endTangent.GetHashCode();
+      return hashCode;
     }
   }
 
