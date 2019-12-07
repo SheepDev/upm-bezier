@@ -54,12 +54,23 @@ public class BezierCurverEditor : Editor
 
       if (!isActivePoint)
       {
-        SceneButton(point.Position, () => SetActivePointIndex(index), Color.red, Handles.SphereHandleCap);
+        SetHandlerColor(Color.red);
+        SceneButton(point.Position, () => SetActivePointIndex(index), Handles.SphereHandleCap, .3f, .15f, .5f);
+
+        SetHandlerColor(Color.white);
+        Handles.DrawDottedLine(point.Position, point.StartTangentPosition, 5);
+        Handles.DrawDottedLine(point.Position, point.EndTangentPosition, 5);
+
+        var startHandleSize = HandleUtility.GetHandleSize(point.StartTangentPosition) * .2f;
+        var endHandleSize = HandleUtility.GetHandleSize(point.EndTangentPosition) * .2f;
+        Handles.SphereHandleCap(0, point.StartTangentPosition, Quaternion.identity, startHandleSize, EventType.Repaint);
+        Handles.SphereHandleCap(0, point.EndTangentPosition, Quaternion.identity, endHandleSize, EventType.Repaint);
       }
       else
       {
         EditorGUI.BeginChangeCheck();
         point = DrawHandlerActivePoint(point);
+
         if (EditorGUI.EndChangeCheck())
         {
           Undo.RecordObject(target, "Set Point: " + index);
@@ -128,6 +139,10 @@ public class BezierCurverEditor : Editor
     {
       activeBezier.isEdit = EditorGUILayout.Toggle("Edit Bezier", activeBezier.isEdit);
     }
+
+    var isLoopProperty = serializedObject.FindProperty("isLoop");
+    EditorGUILayout.PropertyField(isLoopProperty);
+    serializedObject.ApplyModifiedProperties();
   }
 
   private void SetActivePointIndex(int index)
@@ -163,42 +178,73 @@ public class BezierCurverEditor : Editor
       Point point = points[index];
       Point nextPoint = points[index + 1];
       var isActivePoint = activePointIndex.HasValue && index == activePointIndex || index == activePointIndex - 1;
-      var color = (isActivePoint) ? Color.green : Color.white;
+      var color = (isActivePoint) ? Color.yellow : Color.white;
 
-      Handles.DrawBezier(point.Position, nextPoint.Position, point.StartTangentPosition, nextPoint.EndTangentPosition, color, null, 2f);
+      DrawBezier(point, nextPoint, color);
+
+    }
+
+    if (script.isLoop)
+    {
+      var lastIndex = points.Length - 1;
+      var point = points[lastIndex];
+      var nextPoint = points[0];
+      var isActivePoint = activePointIndex.HasValue && 0 == activePointIndex || lastIndex == activePointIndex;
+      var color = (isActivePoint) ? Color.yellow : Color.white;
+
+      DrawBezier(point, nextPoint, color);
     }
   }
 
   private Point DrawHandlerActivePoint(Point point)
   {
+    var handleRotation = (Tools.pivotRotation == PivotRotation.Global) ? Quaternion.identity : script.GetTransform().rotation;
+
+    var newPosition = Vector3.zero;
     switch (activeHandleType)
     {
       case HandleType.Point:
-        point.SetPosition(Handles.PositionHandle(point.Position, Quaternion.identity));
+        newPosition = Handles.PositionHandle(point.Position, handleRotation);
+        point.SetPosition(newPosition);
         break;
       case HandleType.StartTangent:
-        var newStartPosition = Handles.PositionHandle(point.StartTangentPosition, Quaternion.identity);
-        point.SetTangentPosition(newStartPosition, TangentSpace.Start);
+        SetHandlerColor(GetHandlerColor(HandleType.StartTangent));
+        newPosition = Handles.PositionHandle(point.StartTangentPosition, handleRotation);
+
+        point.SetTangentPosition(newPosition, TangentSpace.Start);
+        Handles.DrawLine(point.Position, point.StartTangentPosition);
         break;
       case HandleType.EndTangent:
-        point.SetTangentPosition(Handles.PositionHandle(point.EndTangentPosition, Quaternion.identity), TangentSpace.End);
+        SetHandlerColor(GetHandlerColor(HandleType.EndTangent));
+        newPosition = Handles.PositionHandle(point.EndTangentPosition, handleRotation);
+
+        point.SetTangentPosition(newPosition, TangentSpace.End);
+        Handles.DrawLine(point.Position, point.EndTangentPosition);
         break;
     }
 
     if (activeHandleType != HandleType.Point)
     {
       var color = GetHandlerColor(HandleType.Point);
-      SceneButton(point.Position, () => { activeHandleType = HandleType.Point; }, color, Handles.DotHandleCap);
+      SetHandlerColor(color);
+
+      SceneButton(point.Position, () => { activeHandleType = HandleType.Point; }, Handles.DotHandleCap, .15f, .02f, .5f);
     }
     if (activeHandleType != HandleType.StartTangent)
     {
       var color = GetHandlerColor(HandleType.StartTangent);
-      SceneButton(point.StartTangentPosition, () => { activeHandleType = HandleType.StartTangent; }, color, Handles.DotHandleCap);
+      SetHandlerColor(color);
+
+      Handles.DrawDottedLine(point.Position, point.StartTangentPosition, 5);
+      SceneButton(point.StartTangentPosition, () => { activeHandleType = HandleType.StartTangent; }, Handles.DotHandleCap, .15f, .02f, .5f);
     }
     if (activeHandleType != HandleType.EndTangent)
     {
       var color = GetHandlerColor(HandleType.EndTangent);
-      SceneButton(point.EndTangentPosition, () => { activeHandleType = HandleType.EndTangent; }, color, Handles.DotHandleCap);
+      SetHandlerColor(color);
+
+      Handles.DrawDottedLine(point.Position, point.EndTangentPosition, 5);
+      SceneButton(point.EndTangentPosition, () => { activeHandleType = HandleType.EndTangent; }, Handles.DotHandleCap, .15f, .02f, .5f);
     }
 
     return point;
@@ -217,6 +263,17 @@ public class BezierCurverEditor : Editor
     }
   }
 
+  private void SceneButton(Vector3 worldPosition, Action triggerAction, Handles.CapFunction capFunction, float sizeMultiplier = 1, float min = 0, float max = 1)
+  {
+    var size = Mathf.Clamp(HandleUtility.GetHandleSize(worldPosition) * sizeMultiplier, min, max);
+    var pickSize = size / 2;
+    var isPress = Handles.Button(worldPosition, Quaternion.identity, size, pickSize, capFunction);
+    if (isPress)
+    {
+      triggerAction.Invoke();
+    }
+  }
+
   private void SetHandlerColor(Color color)
   {
     Handles.color = color;
@@ -227,14 +284,19 @@ public class BezierCurverEditor : Editor
     switch (type)
     {
       case HandleType.Point:
-        return Color.yellow;
+        return Color.green;
       case HandleType.StartTangent:
-        return Color.blue;
+        return Color.cyan;
       case HandleType.EndTangent:
-        return Color.red;
+        return Color.magenta;
       default:
         return Color.white;
     }
+  }
+
+  private void DrawBezier(Point a, Point b, Color color, float width = 2)
+  {
+    Handles.DrawBezier(a.Position, b.Position, a.StartTangentPosition, b.EndTangentPosition, color, null, width);
   }
 
   enum HandleType
