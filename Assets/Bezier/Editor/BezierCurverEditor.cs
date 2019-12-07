@@ -140,7 +140,7 @@ public class BezierCurverEditor : Editor
   {
     if (activePointIndex.HasValue)
     {
-      point = script.points[activePointIndex.Value];
+      point = script.GetWorldPoint(activePointIndex.Value);
       return true;
     }
 
@@ -152,7 +152,7 @@ public class BezierCurverEditor : Editor
   {
     if (activePointIndex.HasValue)
     {
-      script.points[activePointIndex.Value] = point;
+      script.SetWorldPoint(activePointIndex.Value, point);
     }
   }
 
