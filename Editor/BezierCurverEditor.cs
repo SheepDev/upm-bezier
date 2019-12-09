@@ -56,12 +56,6 @@ public class BezierCurverEditor : Editor
 
   private void EventHandler()
   {
-    if (GetKeyDown(KeyCode.B, out var bEvent))
-    {
-      SetEdit(!activeBezier.isEdit);
-      bEvent.Use();
-    }
-
     if (GetKeyDown(KeyCode.F, out var fEvent))
     {
       var bounds = new Bounds();
@@ -93,6 +87,18 @@ public class BezierCurverEditor : Editor
 
       SceneView.lastActiveSceneView.Frame(bounds, false);
       fEvent.Use();
+    }
+
+    if (GetKeyDown(KeyCode.B, out var bEvent))
+    {
+      SetEdit(!activeBezier.isEdit);
+      bEvent.Use();
+    }
+
+    if (GetKeyDown(KeyCode.L, out var lEvent))
+    {
+      Curver.isLoop = !Curver.isLoop;
+      lEvent.Use();
     }
 
     if (!activeBezier.isEdit) return;
