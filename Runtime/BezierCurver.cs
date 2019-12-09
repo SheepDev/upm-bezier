@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using static Bezier.BezierUtility;
 
 namespace Bezier
@@ -7,8 +8,9 @@ namespace Bezier
   {
     public bool isLoop;
     [HideInInspector]
-    public Point[] points;
-    public int Lenght => points.Length;
+    [SerializeField]
+    private List<Point> points;
+    public int Lenght => points.Count;
 
     // Cache
     private Transform cacheTransform;
@@ -22,7 +24,7 @@ namespace Bezier
       var point2 = new Point(Vector3.forward * 2, tangent1, tangent2);
       var point3 = new Point(Vector3.forward * 3, tangent1, tangent2);
 
-      points = new Point[] { point1, point2, point3 };
+      points = new List<Point> { point1, point2, point3 };
     }
 
     public Point GetWorldPoint(int index)
@@ -54,7 +56,12 @@ namespace Bezier
       points[index] = point;
     }
 
-    public Point[] GetWorldPoints()
+    public void AddWorldPoint(Point point)
+    {
+      points.Add(WorldToLocalPoint(point, GetTransform()));
+    }
+
+    public List<Point> GetWorldPoints()
     {
       return LocalToWorldPoints(points, GetTransform());
     }
@@ -114,18 +121,6 @@ namespace Bezier
       point = default;
       outIndex = default;
       return false;
-    }
-
-    private void Reset()
-    {
-      var tangent1 = new Tangent(Vector3.right, TangentType.Aligned);
-      var tangent2 = new Tangent(-Vector3.right, TangentType.Aligned);
-
-      var point1 = new Point(Vector3.zero, tangent1, tangent2);
-      var point2 = new Point(Vector3.forward * 2, tangent1, tangent2);
-      var point3 = new Point(Vector3.forward * 3, tangent1, tangent2);
-
-      points = new Point[] { point1, point2, point3 };
     }
   }
 }

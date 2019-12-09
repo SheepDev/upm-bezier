@@ -1,16 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Bezier
 {
   public static class BezierUtility
   {
-    public static Point[] LocalToWorldPoints(Point[] points, Transform transform)
+    public static List<Point> LocalToWorldPoints(ICollection<Point> points, Transform transform)
     {
       return ConvertPoints(points, (point) => LocalToWorldPoint(point, transform));
     }
 
-    public static Point[] WorldToLocalPoints(Point[] points, Transform transform)
+    public static List<Point> WorldToLocalPoints(ICollection<Point> points, Transform transform)
     {
       return ConvertPoints(points, (point) => WorldToLocalPoint(point, transform));
     }
@@ -33,17 +34,24 @@ namespace Bezier
       return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
     }
 
-    private static Point[] ConvertPoints(Point[] points, Func<Point, Point> action)
+    // Reference: https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+    public static Vector3 GetCurverInterval(Point p1, Point p2, float t)
     {
-      var pointCount = points.Length;
-      var newPoints = new Point[pointCount];
+      var b1 = Mathf.Pow((1 - t), 3) * p1.Position;
+      var b2 = Mathf.Pow((1 - t), 2) * 3 * t * p1.StartTangentPosition;
+      var b3 = Mathf.Pow(t, 2) * 3 * (1 - t) * p2.EndTangentPosition;
+      var b4 = Mathf.Pow(t, 3) * p2.Position;
+      return b1 + b2 + b3 + b4;
+    }
 
-      for (int index = 0; index < pointCount; index++)
+    public static List<Point> ConvertPoints(ICollection<Point> points, Func<Point, Point> action)
+    {
+      var newPoints = new List<Point>();
+      foreach (var point in points)
       {
-        var point = points[index];
-        newPoints[index] = action.Invoke(point);
-      }
+        newPoints.Add(action.Invoke(point));
 
+      }
       return newPoints;
     }
   }
