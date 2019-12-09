@@ -13,6 +13,7 @@ public class BezierCurverEditor : Editor
   private HandleType activeHandleType;
 
   private List<Point> cacheWorldPoints;
+
   private BezierCurver Curver => activeBezier.curver;
 
   private void OnEnable()
@@ -61,6 +62,39 @@ public class BezierCurverEditor : Editor
       bEvent.Use();
     }
 
+    if (GetKeyDown(KeyCode.F, out var fEvent))
+    {
+      var bounds = new Bounds();
+      if (GetActivePoint(out Point activePoint))
+      {
+        bounds.center = activePoint.Position;
+        bounds.Encapsulate(activePoint.StartTangentPosition);
+        bounds.Encapsulate(activePoint.EndTangentPosition);
+      }
+      else
+      {
+        var isFirst = true;
+        foreach (var point in cacheWorldPoints)
+        {
+          if (isFirst)
+          {
+            bounds.center = point.Position;
+            isFirst = false;
+          }
+          else
+          {
+            bounds.Encapsulate(point.Position);
+          }
+
+          bounds.Encapsulate(point.StartTangentPosition);
+          bounds.Encapsulate(point.EndTangentPosition);
+        }
+      }
+
+      SceneView.lastActiveSceneView.Frame(bounds, false);
+      fEvent.Use();
+    }
+
     if (!activeBezier.isEdit) return;
 
     if (GetMouseDown(0, out var mouseLeftEvent))
@@ -81,6 +115,16 @@ public class BezierCurverEditor : Editor
 
   private void SceneGUI3D()
   {
+    // if (bounds != null)
+    // {
+    //   Handles.color = Color.green;
+    //   Handles.SphereHandleCap(0, bounds.center, Quaternion.identity, 1, EventType.Repaint);
+    //   Handles.color = Color.cyan;
+    //   Handles.SphereHandleCap(0, bounds.max, Quaternion.identity, 1, EventType.Repaint);
+    //   Handles.color = Color.black;
+    //   Handles.SphereHandleCap(0, bounds.min, Quaternion.identity, 1, EventType.Repaint);
+    // }
+
     for (int index = 0; index < Curver.Lenght; index++)
     {
       var point = Curver.GetWorldPoint(index);
