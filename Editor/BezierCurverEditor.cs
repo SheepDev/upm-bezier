@@ -2,6 +2,7 @@
 using UnityEditor;
 using System;
 using Bezier;
+using System.Collections.Generic;
 
 [CustomEditor(typeof(BezierCurver), true)]
 public class BezierCurverEditor : Editor
@@ -42,10 +43,24 @@ public class BezierCurverEditor : Editor
     OnSceneGUI();
   }
 
+  public override void OnInspectorGUI()
+  {
+    if (activeBezier.curver != null)
+    {
+      activeBezier.isEdit = EditorGUILayout.Toggle("Edit Bezier", activeBezier.isEdit);
+    }
+
+    var isLoopProperty = serializedObject.FindProperty("isLoop");
+    EditorGUILayout.PropertyField(isLoopProperty);
+    serializedObject.ApplyModifiedProperties();
+  }
+
   private void OnSceneGUI()
   {
+    var worldPoints = script.GetWorldPoints();
+    EventHandler(worldPoints);
+    DrawBezier(worldPoints);
     HandleGUI();
-    DrawBezier(script.GetWorldPoints());
 
     for (int index = 0; index < script.Lenght; index++)
     {
@@ -80,7 +95,29 @@ public class BezierCurverEditor : Editor
     }
   }
 
-  public void HandleGUI()
+  private void EventHandler(List<Point> worldPoints)
+  {
+    var currentEvent = Event.current;
+    var leftMouseDown = currentEvent.type == EventType.MouseDown && currentEvent.button == 0;
+
+    if (leftMouseDown)
+    {
+      if (currentEvent.control)
+      {
+        AddPoint(worldPoints);
+        currentEvent.Use();
+      }
+    }
+
+    var pressEscape = currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Escape;
+    if (pressEscape)
+    {
+      currentEvent.Use();
+      SetActivePointIndex(null);
+    }
+  }
+
+  private void HandleGUI()
   {
     Handles.BeginGUI();
     var masterPosition = new Vector2(10, 10);
@@ -133,19 +170,7 @@ public class BezierCurverEditor : Editor
     Handles.EndGUI();
   }
 
-  public override void OnInspectorGUI()
-  {
-    if (activeBezier.curver != null)
-    {
-      activeBezier.isEdit = EditorGUILayout.Toggle("Edit Bezier", activeBezier.isEdit);
-    }
-
-    var isLoopProperty = serializedObject.FindProperty("isLoop");
-    EditorGUILayout.PropertyField(isLoopProperty);
-    serializedObject.ApplyModifiedProperties();
-  }
-
-  private void SetActivePointIndex(int index)
+  private void SetActivePointIndex(int? index)
   {
     activePointIndex = index;
     activeHandleType = HandleType.Point;
@@ -171,9 +196,9 @@ public class BezierCurverEditor : Editor
     }
   }
 
-  private void DrawBezier(Point[] points)
+  private void DrawBezier(List<Point> points)
   {
-    for (int index = 0; index < points.Length - 1; index++)
+    for (int index = 0; index < points.Count - 1; index++)
     {
       Point point = points[index];
       Point nextPoint = points[index + 1];
@@ -181,12 +206,11 @@ public class BezierCurverEditor : Editor
       var color = (isActivePoint) ? Color.yellow : Color.white;
 
       DrawBezier(point, nextPoint, color);
-
     }
 
     if (script.isLoop)
     {
-      var lastIndex = points.Length - 1;
+      var lastIndex = points.Count - 1;
       var point = points[lastIndex];
       var nextPoint = points[0];
       var isActivePoint = activePointIndex.HasValue && 0 == activePointIndex || lastIndex == activePointIndex;
@@ -250,19 +274,6 @@ public class BezierCurverEditor : Editor
     return point;
   }
 
-  private void SceneButton(Vector3 worldPosition, Action triggerAction, Color color, Handles.CapFunction capFunction)
-  {
-    SetHandlerColor(color);
-    var size = HandleUtility.GetHandleSize(worldPosition) / 3;
-    var pickSize = size / 2;
-
-    var isPress = Handles.Button(worldPosition, Quaternion.identity, size, pickSize, capFunction);
-    if (isPress)
-    {
-      triggerAction.Invoke();
-    }
-  }
-
   private void SceneButton(Vector3 worldPosition, Action triggerAction, Handles.CapFunction capFunction, float sizeMultiplier = 1, float min = 0, float max = 1)
   {
     var size = Mathf.Clamp(HandleUtility.GetHandleSize(worldPosition) * sizeMultiplier, min, max);
@@ -277,6 +288,23 @@ public class BezierCurverEditor : Editor
   private void SetHandlerColor(Color color)
   {
     Handles.color = color;
+  }
+
+  private void AddPoint(List<Point> points)
+  {
+    var lastPoint = points[points.Count - 1];
+    var depth = HandleUtility.WorldToGUIPointWithDepth(lastPoint.Position).z;
+    var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
+    var pointPosition = ray.origin + ray.direction * depth;
+
+    var startTangent = new Tangent(Vector3.right, TangentType.Aligned);
+    var endTangent = new Tangent(-Vector3.right, TangentType.Aligned);
+    var point = new Point(pointPosition, startTangent, endTangent);
+    var endTangentPosition = (lastPoint.StartTangentPosition + point.Position) / 2;
+    point.SetTangentPosition(endTangentPosition, TangentSpace.End);
+
+    script.AddWorldPoint(point);
+    SetActivePointIndex(points.Count);
   }
 
   private Color GetHandlerColor(HandleType type)
