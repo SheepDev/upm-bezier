@@ -3,44 +3,29 @@ using UnityEditor;
 using System;
 using Bezier;
 using System.Collections.Generic;
+using static Input.InputEditor;
 
 [CustomEditor(typeof(BezierCurver), true)]
 public class BezierCurverEditor : Editor
 {
   private static BezierEdit activeBezier;
-
-  private BezierCurver script;
   private int? activePointIndex;
   private HandleType activeHandleType;
 
+  private List<Point> cacheWorldPoints;
+  private BezierCurver Curver => activeBezier.curver;
+
   private void OnEnable()
   {
-    script = target as BezierCurver;
-
-    activePointIndex = null;
-    activeHandleType = HandleType.Point;
-
-    SceneView.duringSceneGui -= activeBezier.SceneGUI;
-
-    if (activeBezier.curver != script)
-    {
-      activeBezier.curver = script;
-      activeBezier.isEdit = false;
-      activeBezier.SceneGUI = SceneGUI;
-    }
+    SetActiveScript(target as BezierCurver);
   }
 
   private void OnDisable()
   {
     if (activeBezier.curver != null && activeBezier.isEdit)
     {
-      SceneView.duringSceneGui += activeBezier.SceneGUI;
+      SceneView.duringSceneGui += activeBezier.SceneGUI = (SceneView view) => OnSceneGUI();
     }
-  }
-
-  private void SceneGUI(SceneView view)
-  {
-    OnSceneGUI();
   }
 
   public override void OnInspectorGUI()
@@ -57,14 +42,48 @@ public class BezierCurverEditor : Editor
 
   private void OnSceneGUI()
   {
-    var worldPoints = script.GetWorldPoints();
-    EventHandler(worldPoints);
-    DrawBezier(worldPoints);
-    HandleGUI();
+    cacheWorldPoints = Curver.GetWorldPoints();
+    DrawBezier();
+    EventHandler();
 
-    for (int index = 0; index < script.Lenght; index++)
+    if (activeBezier.isEdit)
     {
-      var point = script.GetWorldPoint(index);
+      SceneGUI3D();
+      SceneGUI2D();
+    }
+  }
+
+  private void EventHandler()
+  {
+    if (GetKeyDown(KeyCode.B, out var bEvent))
+    {
+      SetEdit(!activeBezier.isEdit);
+      bEvent.Use();
+    }
+
+    if (!activeBezier.isEdit) return;
+
+    if (GetMouseDown(0, out var mouseLeftEvent))
+    {
+      if (mouseLeftEvent.control)
+      {
+        AddPoint(cacheWorldPoints);
+        mouseLeftEvent.Use();
+      }
+    }
+
+    if (GetKeyDown(KeyCode.Escape, out var escapeEvent))
+    {
+      SetActivePointIndex(null);
+      escapeEvent.Use();
+    }
+  }
+
+  private void SceneGUI3D()
+  {
+    for (int index = 0; index < Curver.Lenght; index++)
+    {
+      var point = Curver.GetWorldPoint(index);
       var isActivePoint = activePointIndex.HasValue && index == activePointIndex;
 
       if (!isActivePoint)
@@ -89,35 +108,13 @@ public class BezierCurverEditor : Editor
         if (EditorGUI.EndChangeCheck())
         {
           Undo.RecordObject(target, "Set Point: " + index);
-          script.SetWorldPoint(index, point);
+          Curver.SetWorldPoint(index, point);
         }
       }
     }
   }
 
-  private void EventHandler(List<Point> worldPoints)
-  {
-    var currentEvent = Event.current;
-    var leftMouseDown = currentEvent.type == EventType.MouseDown && currentEvent.button == 0;
-
-    if (leftMouseDown)
-    {
-      if (currentEvent.control)
-      {
-        AddPoint(worldPoints);
-        currentEvent.Use();
-      }
-    }
-
-    var pressEscape = currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Escape;
-    if (pressEscape)
-    {
-      currentEvent.Use();
-      SetActivePointIndex(null);
-    }
-  }
-
-  private void HandleGUI()
+  private void SceneGUI2D()
   {
     Handles.BeginGUI();
     var masterPosition = new Vector2(10, 10);
@@ -136,7 +133,7 @@ public class BezierCurverEditor : Editor
     style.alignment = TextAnchor.MiddleCenter;
     style.fontSize = 15;
 
-    var scriptName = script.name;
+    var scriptName = Curver.name;
     if (scriptName.Length > 20)
     {
       scriptName = scriptName.Substring(0, 20) + "...";
@@ -161,9 +158,7 @@ public class BezierCurverEditor : Editor
     // Draw Button
     if (GUI.Button(new Rect(masterPosition + new Vector2((masterWidth / 2) - 75, 20), new Vector2(150, 40)), "Finish Edit Bezier"))
     {
-      activeBezier.isEdit = false;
-      SceneView.duringSceneGui -= activeBezier.SceneGUI;
-      return;
+      SetEdit(false);
     }
     masterPosition.y += 40;
 
@@ -180,7 +175,7 @@ public class BezierCurverEditor : Editor
   {
     if (activePointIndex.HasValue)
     {
-      point = script.GetWorldPoint(activePointIndex.Value);
+      point = Curver.GetWorldPoint(activePointIndex.Value);
       return true;
     }
 
@@ -192,37 +187,13 @@ public class BezierCurverEditor : Editor
   {
     if (activePointIndex.HasValue)
     {
-      script.SetWorldPoint(activePointIndex.Value, point);
-    }
-  }
-
-  private void DrawBezier(List<Point> points)
-  {
-    for (int index = 0; index < points.Count - 1; index++)
-    {
-      Point point = points[index];
-      Point nextPoint = points[index + 1];
-      var isActivePoint = activePointIndex.HasValue && index == activePointIndex || index == activePointIndex - 1;
-      var color = (isActivePoint) ? Color.yellow : Color.white;
-
-      DrawBezier(point, nextPoint, color);
-    }
-
-    if (script.isLoop)
-    {
-      var lastIndex = points.Count - 1;
-      var point = points[lastIndex];
-      var nextPoint = points[0];
-      var isActivePoint = activePointIndex.HasValue && 0 == activePointIndex || lastIndex == activePointIndex;
-      var color = (isActivePoint) ? Color.yellow : Color.white;
-
-      DrawBezier(point, nextPoint, color);
+      Curver.SetWorldPoint(activePointIndex.Value, point);
     }
   }
 
   private Point DrawHandlerActivePoint(Point point)
   {
-    var handleRotation = (Tools.pivotRotation == PivotRotation.Global) ? Quaternion.identity : script.GetTransform().rotation;
+    var handleRotation = (Tools.pivotRotation == PivotRotation.Global) ? Quaternion.identity : Curver.GetTransform().rotation;
 
     var newPosition = Vector3.zero;
     switch (activeHandleType)
@@ -303,7 +274,7 @@ public class BezierCurverEditor : Editor
     var endTangentPosition = (lastPoint.StartTangentPosition + point.Position) / 2;
     point.SetTangentPosition(endTangentPosition, TangentSpace.End);
 
-    script.AddWorldPoint(point);
+    Curver.AddWorldPoint(point);
     SetActivePointIndex(points.Count);
   }
 
@@ -322,9 +293,56 @@ public class BezierCurverEditor : Editor
     }
   }
 
+  private void DrawBezier()
+  {
+    for (int index = 0; index < cacheWorldPoints.Count - 1; index++)
+    {
+      Point point = cacheWorldPoints[index];
+      Point nextPoint = cacheWorldPoints[index + 1];
+      var isActivePoint = activePointIndex.HasValue && index == activePointIndex || index == activePointIndex - 1;
+      var color = (isActivePoint) ? Color.yellow : Color.white;
+
+      DrawBezier(point, nextPoint, color);
+    }
+
+    if (Curver.isLoop)
+    {
+      var lastIndex = cacheWorldPoints.Count - 1;
+      var point = cacheWorldPoints[lastIndex];
+      var nextPoint = cacheWorldPoints[0];
+      var isActivePoint = activePointIndex.HasValue && 0 == activePointIndex || lastIndex == activePointIndex;
+      var color = (isActivePoint) ? Color.yellow : Color.white;
+
+      DrawBezier(point, nextPoint, color);
+    }
+  }
+
   private void DrawBezier(Point a, Point b, Color color, float width = 2)
   {
     Handles.DrawBezier(a.Position, b.Position, a.StartTangentPosition, b.EndTangentPosition, color, null, width);
+  }
+
+  private void SetActiveScript(BezierCurver curver)
+  {
+    if (!(curver is null) && activeBezier.curver != curver)
+    {
+      activeBezier.curver = curver;
+    }
+
+    SceneView.duringSceneGui -= activeBezier.SceneGUI;
+    SetEdit(false);
+  }
+
+  private void SetEdit(bool isEdit)
+  {
+    var isActive = activeBezier.isEdit = isEdit;
+    Tools.hidden = isActive;
+
+    if (!isActive)
+    {
+      Selection.activeObject = Curver.gameObject;
+      SetActivePointIndex(null);
+    }
   }
 
   enum HandleType
@@ -334,6 +352,8 @@ public class BezierCurverEditor : Editor
 
   struct BezierEdit
   {
+    delegate void SetEdit(bool isEdit);
+
     public BezierCurver curver;
     public bool isEdit;
     public Action<SceneView> SceneGUI;
