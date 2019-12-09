@@ -11,13 +11,14 @@ public class BezierCurverEditor : Editor
   private static BezierEdit activeBezier;
   private int? activePointIndex;
   private HandleType activeHandleType;
+  private BezierCurver Curver => activeBezier.curver;
 
   private List<Point> cacheWorldPoints;
-
-  private BezierCurver Curver => activeBezier.curver;
+  private Vector2 GUI2DPosition;
 
   private void OnEnable()
   {
+    GUI2DPosition = new Vector2(-250, 10);
     SetActiveScript(target as BezierCurver);
   }
 
@@ -46,11 +47,11 @@ public class BezierCurverEditor : Editor
     cacheWorldPoints = Curver.GetWorldPoints();
     DrawBezier();
     EventHandler();
+    SceneGUI2D();
 
     if (activeBezier.isEdit)
     {
       SceneGUI3D();
-      SceneGUI2D();
     }
   }
 
@@ -121,16 +122,6 @@ public class BezierCurverEditor : Editor
 
   private void SceneGUI3D()
   {
-    // if (bounds != null)
-    // {
-    //   Handles.color = Color.green;
-    //   Handles.SphereHandleCap(0, bounds.center, Quaternion.identity, 1, EventType.Repaint);
-    //   Handles.color = Color.cyan;
-    //   Handles.SphereHandleCap(0, bounds.max, Quaternion.identity, 1, EventType.Repaint);
-    //   Handles.color = Color.black;
-    //   Handles.SphereHandleCap(0, bounds.min, Quaternion.identity, 1, EventType.Repaint);
-    // }
-
     for (int index = 0; index < Curver.Lenght; index++)
     {
       var point = Curver.GetWorldPoint(index);
@@ -167,11 +158,14 @@ public class BezierCurverEditor : Editor
   private void SceneGUI2D()
   {
     Handles.BeginGUI();
-    var masterPosition = new Vector2(10, 10);
-    var masterWidth = 240;
+    var isEdit = activeBezier.isEdit;
+
+    GUI2DPosition = Vector2.MoveTowards(GUI2DPosition, new Vector2(10, 10), Time.deltaTime * 60);
+    GUI2DPosition.y = 10;
+    var maxWidth = 240;
 
     // Draw Box
-    var boxRect = new Rect(masterPosition, new Vector2(masterWidth, 150));
+    var boxRect = new Rect(GUI2DPosition, new Vector2(maxWidth, (isEdit) ? 140 : 90));
     var oldColor = GUI.color;
     GUI.color = new Color(1, 1, 1, .3f);
     GUI.Box(boxRect, "");
@@ -189,28 +183,33 @@ public class BezierCurverEditor : Editor
       scriptName = scriptName.Substring(0, 20) + "...";
     }
 
-    GUI.Label(new Rect(masterPosition + new Vector2(10, 10), new Vector2(masterWidth - 20, 20)), scriptName, style);
-    masterPosition.y += 20;
+    GUI.Label(new Rect(GUI2DPosition + new Vector2(10, 10), new Vector2(maxWidth - 20, 20)), scriptName, style);
+    GUI2DPosition.y += 30;
 
     // Draw Bezier Type
-    if (GetActivePoint(out Point activePoint))
+    if (isEdit)
     {
-      var startType = EditorGUI.EnumPopup(new Rect(masterPosition + new Vector2(10, 20), new Vector2(masterWidth - 20, 20)), "StartTangent Type", activePoint.StartTangentType);
-      activePoint.SetTangentType((TangentType)startType, TangentSpace.Start);
-      masterPosition.y += 30;
-      var endType = EditorGUI.EnumPopup(new Rect(masterPosition + new Vector2(10, 10), new Vector2(masterWidth - 20, 20)), "EndTangent Type", activePoint.EndTangentType);
-      activePoint.SetTangentType((TangentType)endType, TangentSpace.End);
-      masterPosition.y += 20;
+      var isFound = GetActivePoint(out Point activePoint);
+      EditorGUI.BeginDisabledGroup(!isFound);
+
+      var startType = (TangentType)EditorGUI.EnumPopup(new Rect(GUI2DPosition + new Vector2(10, 10), new Vector2(maxWidth - 20, 10)), "StartTangent Type", activePoint.StartTangentType);
+      activePoint.SetTangentType(startType, TangentSpace.Start);
+      GUI2DPosition.y += 20;
+      var endType = (TangentType)EditorGUI.EnumPopup(new Rect(GUI2DPosition + new Vector2(10, 10), new Vector2(maxWidth - 20, 20)), "EndTangent Type", activePoint.EndTangentType);
+      activePoint.SetTangentType(endType, TangentSpace.End);
+      GUI2DPosition.y += 20;
 
       SetActivePoint(activePoint);
+      EditorGUI.EndDisabledGroup();
+      GUI2DPosition.y += 10;
     }
 
     // Draw Button
-    if (GUI.Button(new Rect(masterPosition + new Vector2((masterWidth / 2) - 75, 20), new Vector2(150, 40)), "Finish Edit Bezier"))
+    var text = (isEdit) ? "Finish Edit" : "Start Edit";
+    if (GUI.Button(new Rect(GUI2DPosition + new Vector2((maxWidth / 2) - 75, 10), new Vector2(150, 30)), text))
     {
-      SetEdit(false);
+      SetEdit(!isEdit);
     }
-    masterPosition.y += 40;
 
     Handles.EndGUI();
   }
@@ -374,7 +373,7 @@ public class BezierCurverEditor : Editor
 
   private void SetActiveScript(BezierCurver curver)
   {
-    if (!(curver is null) && activeBezier.curver != curver)
+    if (!(curver is null) && Curver != curver)
     {
       activeBezier.curver = curver;
     }
