@@ -1,9 +1,6 @@
 {
-    "name": "Bezier.Editor",
-    "references": [
-        "GUID:a859a37637ca3ac42885965e5cf80033",
-        "GUID:cc70d4289798de74d8031ff1a8d7d16b"
-    ],
+    "name": "Utility.Editor",
+    "references": [],
     "includePlatforms": [
         "Editor"
     ],
