@@ -34,6 +34,13 @@ namespace Bezier
       return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
     }
 
+    public static Vector3 GetTangent(Point p1, Point p2, float t)
+    {
+      var start = GetCurverInterval(p1, p2, t);
+      var end = GetCurverInterval(p1, p2, t + .00001f);
+      return (end - start).normalized;
+    }
+
     // Reference: https://en.wikipedia.org/wiki/B%C3%A9zier_curve
     public static Vector3 GetCurverInterval(Point p1, Point p2, float t)
     {

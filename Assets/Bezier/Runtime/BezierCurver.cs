@@ -22,9 +22,34 @@ namespace Bezier
 
       var point1 = new Point(Vector3.zero, tangent1, tangent2);
       var point2 = new Point(Vector3.forward * 2, tangent1, tangent2);
-      var point3 = new Point(Vector3.forward * 3, tangent1, tangent2);
 
-      points = new List<Point> { point1, point2, point3 };
+      points = new List<Point> { point1, point2 };
+    }
+
+    public List<WayPoint> Build(int resolution)
+    {
+      var waypoints = new List<WayPoint>();
+      var worldPoints = GetWorldPoints();
+      var step = 1f / resolution;
+      var rotation = GetTransform().rotation;
+
+      for (int index = 0; index < worldPoints.Count; index++)
+      {
+        var point = worldPoints[index];
+
+        if (GetNextPoint(index, out Point nextPoint, out int nextIndex))
+        {
+          for (float t = 0; t < 1; t += step)
+          {
+            var position = GetCurverInterval(point, nextPoint, t);
+            var tangent = GetTangent(point, nextPoint, t);
+            rotation = QuaternionUtility.ProjectOnDirection(rotation, tangent);
+            waypoints.Add(new WayPoint(position, rotation));
+          }
+        }
+      }
+
+      return waypoints;
     }
 
     public Point GetWorldPoint(int index)
