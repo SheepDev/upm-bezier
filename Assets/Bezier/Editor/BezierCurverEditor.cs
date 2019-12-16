@@ -4,6 +4,7 @@ using System;
 using Bezier;
 using System.Collections.Generic;
 using static Input.InputEditor;
+using Utility.Editor;
 
 [CustomEditor(typeof(BezierCurver), true)]
 public class BezierCurverEditor : Editor
@@ -44,6 +45,11 @@ public class BezierCurverEditor : Editor
 
   private void OnSceneGUI()
   {
+    if (Curver is null)
+    {
+      Destroy();
+    }
+
     cacheWorldPoints = Curver.GetWorldPoints();
     DrawBezier();
     EventHandler();
@@ -342,27 +348,38 @@ public class BezierCurverEditor : Editor
     }
   }
 
-  private void DrawBezier()
+  private Color GetHandlerColor(int index)
   {
-    for (int index = 0; index < cacheWorldPoints.Count - 1; index++)
+    var nextIndex = index + 1;
+    if (nextIndex == cacheWorldPoints.Count)
     {
-      Point point = cacheWorldPoints[index];
-      Point nextPoint = cacheWorldPoints[index + 1];
-      var isActivePoint = activePointIndex.HasValue && index == activePointIndex || index == activePointIndex - 1;
-      var color = (isActivePoint) ? Color.yellow : Color.white;
-
-      DrawBezier(point, nextPoint, color);
+      nextIndex = 0;
     }
 
-    if (Curver.isLoop)
-    {
-      var lastIndex = cacheWorldPoints.Count - 1;
-      var point = cacheWorldPoints[lastIndex];
-      var nextPoint = cacheWorldPoints[0];
-      var isActivePoint = activePointIndex.HasValue && 0 == activePointIndex || lastIndex == activePointIndex;
-      var color = (isActivePoint) ? Color.yellow : Color.white;
+    var isActivePoint = activePointIndex.HasValue && index == activePointIndex || nextIndex == activePointIndex;
+    return (isActivePoint) ? Color.yellow : Color.white;
+  }
 
-      DrawBezier(point, nextPoint, color);
+  private void DrawBezier()
+  {
+    var lastPoint = cacheWorldPoints.Count - 1;
+    for (int index = 0; index < cacheWorldPoints.Count; index++)
+    {
+      var isLastPoint = index == lastPoint;
+      var point = cacheWorldPoints[index];
+      var nextPoint = (isLastPoint) ? cacheWorldPoints[0] : cacheWorldPoints[index + 1];
+
+      if (!isLastPoint || isLastPoint && Curver.isLoop)
+      {
+        DrawBezier(point, nextPoint, GetHandlerColor(index));
+      }
+    }
+
+    var waypoints = Curver.Build(8);
+    for (int index = 0; index < waypoints.Count; index++)
+    {
+      var waypoint = waypoints[index];
+      HandleExtension.RotationAxisView(waypoint.position, waypoint.rotation);
     }
   }
 
@@ -373,13 +390,18 @@ public class BezierCurverEditor : Editor
 
   private void SetActiveScript(BezierCurver curver)
   {
-    if (!(curver is null) && Curver != curver)
+    if (!(curver is null))
     {
       activeBezier.curver = curver;
     }
 
-    SceneView.duringSceneGui -= activeBezier.SceneGUI;
+    Destroy();
     SetEdit(false);
+  }
+
+  private void Destroy()
+  {
+    SceneView.duringSceneGui -= activeBezier.SceneGUI;
   }
 
   private void SetEdit(bool isEdit)
