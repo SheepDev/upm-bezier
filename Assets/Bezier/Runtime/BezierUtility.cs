@@ -51,19 +51,40 @@ namespace Bezier
       return b1 + b2 + b3 + b4;
     }
 
-    public static float Distance(Point p1, Point p2, float precision = 10)
+    public static void ApplyDistance(ref Point p1, Point p2, int resolution = 300, float precision = 1)
     {
-      var step = .02f;
-      float distance = 0f;
+      Distance(p1, p2, out var tDistance, resolution, precision);
+      p1.tDistance = tDistance;
+      p1.arcDistance = tDistance.keys[tDistance.length - 1].time;
+    }
 
-      for (float t = 0; t < 1; t += step)
+    public static void Distance(Point p1, Point p2, out AnimationCurve tDistance, int resolution = 50, float precision = 1)
+    {
+      var step = 1f / resolution;
+      var previousPosition = p1.Position;
+      var distance = 0f;
+      var distanceTotal = 0f;
+
+      tDistance = new AnimationCurve();
+      tDistance.AddKey(new Keyframe(0, 0, 0, 0, 0, 0));
+
+      for (var t = step; t < 1; t += step)
       {
-        var point = GetCurverInterval(p1, p2, t);
-        var nextPoint = GetCurverInterval(p1, p2, t + step);
-        distance += Vector3.Distance(point, nextPoint);
+        var position = BezierUtility.GetCurverInterval(p1, p2, t);
+        distance += Vector3.Distance(position, previousPosition);
+        previousPosition = position;
+
+        if (distance >= precision)
+        {
+          distanceTotal += distance;
+          tDistance.AddKey(new Keyframe(distanceTotal, t, 0, 0, 0, 0));
+          distance = 0;
+        }
       }
 
-      return distance;
+      distance += Vector3.Distance(p2.position, previousPosition);
+      distanceTotal += distance;
+      tDistance.AddKey(new Keyframe(distanceTotal, 1, 0, 0, 0, 0));
     }
 
     public static List<Point> ConvertPoints(ICollection<Point> points, Func<Point, Point> action)
@@ -72,7 +93,6 @@ namespace Bezier
       foreach (var point in points)
       {
         newPoints.Add(action.Invoke(point));
-
       }
       return newPoints;
     }
