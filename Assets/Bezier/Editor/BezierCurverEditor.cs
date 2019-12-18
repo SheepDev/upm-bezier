@@ -41,6 +41,8 @@ public class BezierCurverEditor : Editor
     var isLoopProperty = serializedObject.FindProperty("isLoop");
     EditorGUILayout.PropertyField(isLoopProperty);
     serializedObject.ApplyModifiedProperties();
+
+    base.OnInspectorGUI();
   }
 
   private void OnSceneGUI()
@@ -360,6 +362,25 @@ public class BezierCurverEditor : Editor
     return (isActivePoint) ? Color.yellow : Color.white;
   }
 
+  private Color GetHandlerIndexColor(int index)
+  {
+    var selector = (int)Mathf.Repeat(index, 4);
+
+    switch (selector)
+    {
+      case 0:
+        return Color.blue;
+      case 1:
+        return Color.green;
+      case 2:
+        return Color.red;
+      case 3:
+        return Color.yellow;
+      default:
+        return Color.white;
+    }
+  }
+
   private void DrawBezier()
   {
     var lastPoint = cacheWorldPoints.Count - 1;
@@ -372,14 +393,16 @@ public class BezierCurverEditor : Editor
       if (!isLastPoint || isLastPoint && Curver.isLoop)
       {
         DrawBezier(point, nextPoint, GetHandlerColor(index));
-      }
-    }
 
-    var waypoints = Curver.Build(8);
-    for (int index = 0; index < waypoints.Count; index++)
-    {
-      var waypoint = waypoints[index];
-      HandleExtension.RotationAxisView(waypoint.position, waypoint.rotation);
+        Handles.color = GetHandlerIndexColor(index);
+        var isFirstKey = true;
+        foreach (var key in point.TCurveDistance.keys)
+        {
+          var position = BezierUtility.GetCurverInterval(point, nextPoint, key.value);
+          Handles.SphereHandleCap(0, position, Quaternion.identity, (isFirstKey) ? .2f : .4f, EventType.Repaint);
+          isFirstKey = false;
+        }
+      }
     }
   }
 

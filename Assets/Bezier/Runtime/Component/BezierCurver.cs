@@ -7,7 +7,6 @@ namespace Bezier
   public class BezierCurver : MonoBehaviour
   {
     public bool isLoop;
-    [HideInInspector]
     [SerializeField]
     private List<Point> points;
     public int Lenght => points.Count;
@@ -22,34 +21,52 @@ namespace Bezier
 
       var point1 = new Point(Vector3.zero, tangent1, tangent2);
       var point2 = new Point(Vector3.forward * 2, tangent1, tangent2);
+      point1.arcDistance = BezierUtility.Distance(point1, point2);
 
       points = new List<Point> { point1, point2 };
     }
 
-    public List<WayPoint> Build(int resolution)
+    [ContextMenu("Build Distance")]
+    public void CalculateDistance()
     {
-      var waypoints = new List<WayPoint>();
-      var worldPoints = GetWorldPoints();
-      var step = 1f / resolution;
-      var rotation = GetTransform().rotation;
+      var pointCount = points.Count;
+      var step = 1f / 500f;
 
-      for (int index = 0; index < worldPoints.Count; index++)
+      for (int index = 0; index < pointCount; index++)
       {
-        var point = worldPoints[index];
+        var point = points[index];
 
-        if (GetNextPoint(index, out Point nextPoint, out int nextIndex))
+        if (GetNextPoint(index, true, out Point nextPoint, out int nextIndex))
         {
-          for (float t = 0; t < 1; t += step)
+          var previousPosition = point.Position;
+          var distance = 0f;
+          var distanceTotal = 0f;
+          var tDistance = new AnimationCurve();
+          tDistance.AddKey(new Keyframe(0, 0, 0, 0, 0, 0));
+
+          for (var t = step; t < 1; t += step)
           {
-            var position = GetCurverInterval(point, nextPoint, t);
-            var tangent = GetTangent(point, nextPoint, t);
-            rotation = QuaternionUtility.ProjectOnDirection(rotation, tangent);
-            waypoints.Add(new WayPoint(position, rotation));
+            var position = BezierUtility.GetCurverInterval(point, nextPoint, t);
+            distance += Vector3.Distance(position, previousPosition);
+            previousPosition = position;
+
+            if (distance >= 1)
+            {
+              distanceTotal += distance;
+              tDistance.AddKey(new Keyframe(distanceTotal, t, 0, 0, 0, 0));
+              distance = 0;
+            }
           }
+
+          distance += Vector3.Distance(nextPoint.position, previousPosition);
+          distanceTotal += distance;
+          tDistance.AddKey(new Keyframe(distanceTotal, 1, 0, 0, 0, 0));
+
+          point.arcDistance = distanceTotal;
+          point.tDistance = tDistance;
+          points[index] = point;
         }
       }
-
-      return waypoints;
     }
 
     public Point GetWorldPoint(int index)
@@ -64,9 +81,11 @@ namespace Bezier
 
       if (oldPoint.Equals(point)) return;
 
-      if (GetNextPoint(index, out var nextPoint, out var nextIndex))
+      if (GetNextPoint(index, isLoop, out var nextPoint, out var nextIndex))
       {
         point.UpdateVector(TangentSpace.Start, nextPoint);
+        point.arcDistance = BezierUtility.Distance(point, nextPoint);
+
         nextPoint.UpdateVector(TangentSpace.End, point);
         points[nextIndex] = nextPoint;
       }
@@ -75,6 +94,8 @@ namespace Bezier
       {
         point.UpdateVector(TangentSpace.End, previousPoint);
         previousPoint.UpdateVector(TangentSpace.Start, point);
+        previousPoint.arcDistance = BezierUtility.Distance(previousPoint, point);
+
         points[previousIndex] = previousPoint;
       }
 
@@ -106,25 +127,18 @@ namespace Bezier
       return cacheTransform;
     }
 
-    private bool GetNextPoint(int index, out Point point, out int outIndex)
+    private bool GetNextPoint(int currentIndex, bool isLoop, out Point nextPoint, out int nextIndex)
     {
-      var nextIndex = index + 1;
-      if (nextIndex < Lenght)
-      {
-        point = points[nextIndex];
-        outIndex = nextIndex;
-        return true;
-      }
-      else if (isLoop)
-      {
-        point = points[0];
-        outIndex = 0;
-        return true;
-      }
+      var hasNext = isLoop || HasNextPoint(currentIndex);
+      nextIndex = (hasNext) ? (int)Mathf.Repeat(currentIndex + 1, Lenght) : default;
+      nextPoint = (hasNext) ? points[nextIndex] : default;
+      return hasNext;
+    }
 
-      point = default;
-      outIndex = default;
-      return false;
+    private bool HasNextPoint(int currentIndex)
+    {
+      var nextIndex = currentIndex + 1;
+      return nextIndex < Lenght;
     }
 
     private bool GetPreviousPoint(int index, out Point point, out int outIndex)

@@ -1,6 +1,5 @@
 using UnityEngine;
 using System;
-using System.Collections.Generic;
 
 namespace Bezier
 {
@@ -8,12 +7,17 @@ namespace Bezier
   public struct Point
   {
     [SerializeField]
-    private Vector3 position;
+    internal Vector3 position;
     [SerializeField]
     internal Tangent startTangent;
     [SerializeField]
     internal Tangent endTangent;
+    [SerializeField]
+    internal float arcDistance;
+    [SerializeField]
+    internal AnimationCurve tDistance;
 
+    public float Length => arcDistance;
     public Vector3 Position => position;
     public Vector3 StartTangentPosition => startTangent.position + Position;
     public Vector3 EndTangentPosition => endTangent.position + Position;
@@ -21,8 +25,9 @@ namespace Bezier
     public Vector3 EndTangentLocalPosition => endTangent.position;
     public TangentType StartTangentType => startTangent.type;
     public TangentType EndTangentType => endTangent.type;
+    public AnimationCurve TCurveDistance => tDistance;
 
-    public Point(Vector3 position, Tangent startTangent, Tangent endTangent)
+    public Point(Vector3 position, Tangent startTangent, Tangent endTangent) : this()
     {
       this.position = position;
       this.startTangent = startTangent;
