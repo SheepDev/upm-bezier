@@ -22,7 +22,7 @@ namespace Bezier
       var newStartTangent = transform.TransformPoint(point.StartTangentLocalPosition) - transform.position;
       var newEndTangent = transform.TransformPoint(point.EndTangentLocalPosition) - transform.position;
 
-      return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
+      return PointBuilder.Copy(point, newPosition, newStartTangent, newEndTangent);
     }
 
     public static Point WorldToLocalPoint(Point point, Transform transform)
@@ -31,7 +31,7 @@ namespace Bezier
       var newStartTangent = transform.InverseTransformPoint(point.StartTangentPosition) - newPosition;
       var newEndTangent = transform.InverseTransformPoint(point.EndTangentPosition) - newPosition;
 
-      return new Point(newPosition, new Tangent(newStartTangent, point.StartTangentType), new Tangent(newEndTangent, point.EndTangentType));
+      return PointBuilder.Copy(point, newPosition, newStartTangent, newEndTangent);
     }
 
     public static Vector3 GetTangent(Point p1, Point p2, float t)
@@ -49,6 +49,21 @@ namespace Bezier
       var b3 = Mathf.Pow(t, 2) * 3 * (1 - t) * p2.EndTangentPosition;
       var b4 = Mathf.Pow(t, 3) * p2.Position;
       return b1 + b2 + b3 + b4;
+    }
+
+    public static float Distance(Point p1, Point p2, float precision = 10)
+    {
+      var step = .02f;
+      float distance = 0f;
+
+      for (float t = 0; t < 1; t += step)
+      {
+        var point = GetCurverInterval(p1, p2, t);
+        var nextPoint = GetCurverInterval(p1, p2, t + step);
+        distance += Vector3.Distance(point, nextPoint);
+      }
+
+      return distance;
     }
 
     public static List<Point> ConvertPoints(ICollection<Point> points, Func<Point, Point> action)
