@@ -17,7 +17,7 @@ namespace Bezier
     [SerializeField]
     internal AnimationCurve tDistance;
 
-    public float Length => arcDistance;
+    public float Size => tDistance.keys[tDistance.length - 1].time;
     public Vector3 Position => position;
     public Vector3 StartTangentPosition => startTangent.position + Position;
     public Vector3 EndTangentPosition => endTangent.position + Position;
@@ -47,18 +47,10 @@ namespace Bezier
       switch (space)
       {
         case TangentSpace.Start:
-          if (startTangent.type != type)
-          {
-            startTangent.type = type;
-            UpdateAligned(ref startTangent, ref endTangent);
-          }
+          UpdateTangentType(type, ref startTangent, ref endTangent);
           break;
         case TangentSpace.End:
-          if (endTangent.type != type)
-          {
-            endTangent.type = type;
-            UpdateAligned(ref endTangent, ref startTangent);
-          }
+          UpdateTangentType(type, ref endTangent, ref startTangent);
           break;
       }
     }
@@ -70,18 +62,10 @@ namespace Bezier
       switch (space)
       {
         case TangentSpace.Start:
-          if (startTangent.position != newPosition)
-          {
-            startTangent.position = newPosition;
-            UpdateAligned(ref startTangent, ref endTangent);
-          }
+          UpdateTangentPosition(newPosition, ref startTangent, ref endTangent);
           break;
         case TangentSpace.End:
-          if (endTangent.position != newPosition)
-          {
-            endTangent.position = newPosition;
-            UpdateAligned(ref endTangent, ref startTangent);
-          }
+          UpdateTangentPosition(newPosition, ref endTangent, ref startTangent);
           break;
       }
     }
@@ -91,54 +75,70 @@ namespace Bezier
       switch (space)
       {
         case TangentSpace.Start:
-          if (startTangent.position != position)
-          {
-            startTangent.position = position;
-            UpdateAligned(ref startTangent, ref endTangent);
-          }
+          UpdateTangentPosition(position, ref startTangent, ref endTangent);
           break;
         case TangentSpace.End:
-          if (endTangent.position != position)
-          {
-            endTangent.position = position;
-            UpdateAligned(ref endTangent, ref startTangent);
-          }
+          UpdateTangentPosition(position, ref endTangent, ref startTangent);
           break;
       }
     }
 
-    public void UpdateAligned(ref Tangent updated, ref Tangent other)
+    public void CheckTangentVector(TangentSpace space, Point referencePoint)
     {
-      if (other.type == TangentType.Aligned)
-      {
-        var magnitude = other.position.magnitude;
-        var direction = -updated.position.normalized;
-
-        other.position = direction * magnitude;
-      }
-    }
-
-    public void UpdateVector(TangentSpace space, Point referencePoint)
-    {
-      float magnitude = 0;
-      Vector3 direction = Vector3.one;
-
       switch (space)
       {
         case TangentSpace.Start:
-          if (startTangent.type != TangentType.Vector)
-            return;
-          magnitude = startTangent.position.magnitude;
-          direction = (referencePoint.position - position).normalized;
-          startTangent.position = direction * magnitude;
+          UpdateVector(ref startTangent, ref endTangent, referencePoint);
           break;
         case TangentSpace.End:
-          if (endTangent.type != TangentType.Vector)
-            return;
-          magnitude = endTangent.position.magnitude;
-          direction = (referencePoint.position - position).normalized;
-          endTangent.position = direction * magnitude;
+          UpdateVector(ref endTangent, ref startTangent, referencePoint);
           break;
+      }
+    }
+
+    private void UpdateVector(ref Tangent updated, ref Tangent other, Point reference)
+    {
+      if (updated.type != TangentType.Vector) return;
+
+      updated.position = TangentUtility.VectorPosition(this, reference, updated);
+
+      if (other.type == TangentType.Aligned)
+      {
+        other.position = TangentUtility.AlignPosition(other, updated);
+      }
+    }
+
+    private void UpdateTangentPosition(Vector3 newPosition, ref Tangent updated, ref Tangent other)
+    {
+      if (updated.position != newPosition)
+      {
+        updated.position = newPosition;
+
+        if (other.type == TangentType.Aligned)
+        {
+          other.position = TangentUtility.AlignPosition(other, updated);
+        }
+        else if (updated.type == TangentType.Aligned)
+        {
+          updated.type = TangentType.Free;
+        }
+      }
+    }
+
+    private void UpdateTangentType(TangentType type, ref Tangent updated, ref Tangent other)
+    {
+      if (updated.type != type)
+      {
+        updated.type = type;
+
+        if (updated.type == TangentType.Aligned)
+        {
+          updated.position = TangentUtility.AlignPosition(updated, other);
+        }
+        if (other.type == TangentType.Aligned)
+        {
+          other.position = TangentUtility.AlignPosition(other, updated);
+        }
       }
     }
 
