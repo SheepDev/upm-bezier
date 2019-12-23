@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,6 +23,31 @@ namespace Utility.Editor
       Handles.ArrowHandleCap(0, position, rightRotation, sizeHandle, EventType.Repaint);
 
       Handles.color = oldColor;
+    }
+
+    public static bool DrawButton(Vector3 position, Handles.CapFunction capFunction, float sizeMultipler = 1)
+    {
+      var size = HandleUtility.GetHandleSize(position) * sizeMultipler;
+      Handles.SphereHandleCap(0, position, Quaternion.identity, size, EventType.Repaint);
+
+      var buttonSize = size * .8f;
+      var pickSize = buttonSize / 2;
+
+      var oldColor = Handles.color;
+      Handles.color = Color.white;
+      var isPress = Handles.Button(position, Quaternion.identity, buttonSize, pickSize, capFunction);
+      Handles.color = oldColor;
+
+      return isPress;
+    }
+
+    public static void DrawDot(Vector3 position, float sizeMultipler = 1)
+    {
+      var size = HandleUtility.GetHandleSize(position) * sizeMultipler;
+      Handles.DotHandleCap(0, position, Quaternion.identity, size, EventType.Repaint);
+
+      Handles.color = Color.white;
+      Handles.DotHandleCap(0, position, Quaternion.identity, size * .6f, EventType.Repaint);
     }
   }
 }
