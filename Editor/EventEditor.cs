@@ -13,6 +13,7 @@ namespace Bezier
     public override void OnSceneGUI(SceneView view)
     {
       var curveEditor = BezierCurveEditor.activeCurve;
+      var curve = curveEditor.Curve;
 
       if (GetKeyDown(KeyCode.F, out var fEvent))
       {
@@ -28,7 +29,7 @@ namespace Bezier
 
       if (GetKeyDown(KeyCode.L, out var lEvent))
       {
-        curveEditor.SetLoop(!curveEditor.Curve.isLoop);
+        curveEditor.SetLoop(!curveEditor.Curve.IsLoop);
         lEvent.Use();
       }
 
@@ -38,9 +39,8 @@ namespace Bezier
 
       if (GetKeyUp(KeyCode.C, out var cEvent))
       {
-        var worldpoints = BezierCurveEditor.activeCurve.Curve.GetWorldPoints();
-        var lastPoint = worldpoints[worldpoints.Count - 1];
-        AddPoint(lastPoint);
+        var lastWorldpoint = curve.GetWorldPoint(curve.Lenght - 1);
+        AddPoint(lastWorldpoint);
         cEvent.Use();
       }
 
@@ -60,8 +60,8 @@ namespace Bezier
       {
         var activePoint = curveEditor.ActivePoint;
         bounds.center = activePoint.Position;
-        bounds.Encapsulate(activePoint.StartTangentPosition);
-        bounds.Encapsulate(activePoint.EndTangentPosition);
+        bounds.Encapsulate(activePoint.TangentStartWorldPosition);
+        bounds.Encapsulate(activePoint.TangentEndWorldPosition);
       }
       else
       {
@@ -71,27 +71,27 @@ namespace Bezier
         foreach (var point in worldpoints)
         {
           bounds.Encapsulate(point.Position);
-          bounds.Encapsulate(point.StartTangentPosition);
-          bounds.Encapsulate(point.EndTangentPosition);
+          bounds.Encapsulate(point.TangentStartWorldPosition);
+          bounds.Encapsulate(point.TangentEndWorldPosition);
         }
       }
 
       view.Frame(bounds);
     }
 
-    private void AddPoint(Point lastPoint)
+    private void AddPoint(BezierPoint lastPoint)
     {
       var depth = HandleUtility.WorldToGUIPointWithDepth(lastPoint.Position).z;
       var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
 
       var pointPosition = ray.origin + ray.direction * depth;
-      var endTangentPosition = (lastPoint.StartTangentPosition + pointPosition) / 2;
+      var endTangentPosition = (lastPoint.TangentStartWorldPosition + pointPosition) / 2;
       var size = Vector3.Distance(endTangentPosition, pointPosition) / 2;
 
       var startTangent = new Tangent(Vector3.right * size, TangentType.Aligned);
       var endTangent = new Tangent(-Vector3.right, TangentType.Aligned);
 
-      var point = new Point(pointPosition, startTangent, endTangent);
+      var point = new BezierPoint(pointPosition, startTangent, endTangent);
       point.SetTangentPosition(endTangentPosition, TangentSpace.End);
 
       BezierCurveEditor.activeCurve.AddPoint(point);
