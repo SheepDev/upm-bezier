@@ -11,7 +11,7 @@ namespace Bezier
       return direction * magnitude;
     }
 
-    public static Vector3 VectorPosition(Point point, Point reference, Tangent tangent)
+    public static Vector3 VectorPosition(BezierPoint point, BezierPoint reference, Tangent tangent)
     {
       var magnitude = tangent.position.magnitude;
       var direction = (reference.position - point.position).normalized;

@@ -4,7 +4,7 @@ using System;
 namespace Bezier
 {
   [Serializable]
-  public struct Point
+  public struct BezierPoint
   {
     [SerializeField]
     internal Vector3 position;
@@ -13,21 +13,20 @@ namespace Bezier
     [SerializeField]
     internal Tangent endTangent;
     [SerializeField]
-    internal float arcDistance;
+    internal bool hasNextPoint;
     [SerializeField]
-    internal AnimationCurve tDistance;
+    internal NeighborPointInfo next;
 
-    public float Size => tDistance.keys[tDistance.length - 1].time;
     public Vector3 Position => position;
-    public Vector3 StartTangentPosition => startTangent.position + Position;
-    public Vector3 EndTangentPosition => endTangent.position + Position;
-    public Vector3 StartTangentLocalPosition => startTangent.position;
-    public Vector3 EndTangentLocalPosition => endTangent.position;
-    public TangentType StartTangentType => startTangent.type;
-    public TangentType EndTangentType => endTangent.type;
-    public AnimationCurve TCurveDistance => tDistance;
+    public bool HasNextPoint => hasNextPoint;
+    public NeighborPointInfo Next => next;
 
-    public Point(Vector3 position, Tangent startTangent, Tangent endTangent) : this()
+    public Vector3 TangentStartWorldPosition => startTangent.position + Position;
+    public Vector3 TangentEndWorldPosition => endTangent.position + Position;
+    public Tangent TangentStart => startTangent;
+    public Tangent TangentEnd => endTangent;
+
+    public BezierPoint(Vector3 position, Tangent startTangent, Tangent endTangent) : this()
     {
       this.position = position;
       this.startTangent = startTangent;
@@ -83,20 +82,27 @@ namespace Bezier
       }
     }
 
-    public void CheckTangentVector(TangentSpace space, Point referencePoint)
+    public void CheckTangentVector(BezierPoint referencePoint, TangentSpace space)
     {
       switch (space)
       {
         case TangentSpace.Start:
-          UpdateVector(ref startTangent, ref endTangent, referencePoint);
+          UpdateVector(referencePoint, ref startTangent, ref endTangent);
           break;
         case TangentSpace.End:
-          UpdateVector(ref endTangent, ref startTangent, referencePoint);
+          UpdateVector(referencePoint, ref endTangent, ref startTangent);
           break;
       }
     }
 
-    private void UpdateVector(ref Tangent updated, ref Tangent other, Point reference)
+    internal void SetNextPoint(BezierPoint point)
+    {
+      next.position = point.Position;
+      next.tangentPosition = point.TangentEndWorldPosition;
+      // next.forward = point.Position;
+    }
+
+    private void UpdateVector(BezierPoint reference, ref Tangent updated, ref Tangent other)
     {
       if (updated.type != TangentType.Vector) return;
 
@@ -144,7 +150,7 @@ namespace Bezier
 
     public override bool Equals(object obj)
     {
-      return obj is Point point &&
+      return obj is BezierPoint point &&
              position == point.position &&
              startTangent.Equals(point.startTangent) &&
              endTangent.Equals(point.endTangent);
@@ -157,6 +163,21 @@ namespace Bezier
       hashCode *= -1521134295 + startTangent.GetHashCode();
       hashCode *= -1521134295 + endTangent.GetHashCode();
       return hashCode;
+    }
+  }
+
+  [System.Serializable]
+  public struct NeighborPointInfo
+  {
+    public Vector3 position;
+    public Vector3 tangentPosition;
+    public Vector3 forward;
+
+    public NeighborPointInfo(Vector3 position, Vector3 tangentPosition, Vector3 forward)
+    {
+      this.position = position;
+      this.tangentPosition = tangentPosition;
+      this.forward = forward;
     }
   }
 
