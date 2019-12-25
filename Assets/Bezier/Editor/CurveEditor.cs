@@ -8,19 +8,19 @@ namespace Bezier
   {
     private bool isEdit;
     private int activePointIndex;
-    private BezierCurver script;
+    private BezierCurve script;
     private EditorBehaviour[] behaviours;
 
     private EditorApplication.CallbackFunction Update;
     private Action<SceneView> SceneGUI;
 
     public bool IsEdit => isEdit;
-    public BezierCurver Curve => script;
+    public BezierCurve Curve => script;
     public string Name => (Curve != null) ? Curve.name : "None";
 
     public int ActivePointIndex => activePointIndex;
     public bool IsActivePointIndex => activePointIndex >= 0 && activePointIndex < Curve.Lenght;
-    public Point ActivePoint => (IsActivePointIndex) ? script.GetWorldPoint(activePointIndex) : default;
+    public BezierPoint ActivePoint => (IsActivePointIndex) ? script.GetWorldPoint(activePointIndex) : default;
 
     public CurveEditor()
     {
@@ -45,7 +45,7 @@ namespace Bezier
       }
     }
 
-    public void Enable(BezierCurver script)
+    public void Enable(BezierCurve script)
     {
       if (this.Curve == script) return; else Disable();
 
@@ -81,7 +81,7 @@ namespace Bezier
       }
     }
 
-    public void SetActivePoint(Point point)
+    public void SetActivePoint(BezierPoint point)
     {
       if (activePointIndex < 0) return;
 
@@ -94,7 +94,7 @@ namespace Bezier
       }
     }
 
-    public void AddPoint(Point point)
+    public void AddPoint(BezierPoint point)
     {
       var lenght = script.Lenght;
       Undo.RecordObject(script, "Add Point " + lenght);
@@ -104,10 +104,10 @@ namespace Bezier
 
     public void SetLoop(bool isLoop)
     {
-      if (script.isLoop != isLoop)
+      if (script.IsLoop != isLoop)
       {
         Undo.RecordObject(script, "Set Curver Loop");
-        script.isLoop = isLoop;
+        script.SetLoop(isLoop);
       }
     }
 
