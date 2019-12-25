@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using Bezier;
 
-[CustomEditor(typeof(BezierCurver), true)]
+[CustomEditor(typeof(BezierCurve), true)]
 public class BezierCurveEditor : Editor
 {
   public static CurveEditor activeCurve;
@@ -13,7 +13,7 @@ public class BezierCurveEditor : Editor
       activeCurve = new CurveEditor();
     }
 
-    var script = target as BezierCurver;
+    var script = target as BezierCurve;
     activeCurve.Enable(script);
   }
 
@@ -24,7 +24,13 @@ public class BezierCurveEditor : Editor
 
   public override void OnInspectorGUI()
   {
-    activeCurve.Edit(EditorGUILayout.Toggle("Edit Bezier", activeCurve.IsEdit));
+    var isEdit = EditorGUILayout.Toggle("Edit Bezier", activeCurve.IsEdit);
+    activeCurve.Edit(isEdit);
+
+    var isLoop = EditorGUILayout.Toggle("Is Loop", activeCurve.Curve.IsLoop);
+    activeCurve.SetLoop(isLoop);
+
+    serializedObject.ApplyModifiedProperties();
     base.OnInspectorGUI();
   }
 }

@@ -188,13 +188,13 @@ namespace Bezier
         position.y += padding.y;
 
         var newTypeTangentStart =
-          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent Start", point.StartTangentType);
+          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent Start", point.TangentStart.type);
         position.y += padding.y;
         var newTypeTangentEnd =
-          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent End", point.EndTangentType);
+          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent End", point.TangentEnd.type);
         EditorGUI.EndDisabledGroup();
 
-        var isModify = point.StartTangentType != newTypeTangentStart || point.EndTangentType != newTypeTangentEnd;
+        var isModify = point.TangentStart.type != newTypeTangentStart || point.TangentEnd.type != newTypeTangentEnd;
         if (isModify)
         {
           point.SetTangentType(newTypeTangentStart, TangentSpace.Start);
