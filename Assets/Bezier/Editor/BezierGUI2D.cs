@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using static Bezier.BezierPoint;
 
 namespace Bezier
 {
@@ -188,17 +189,17 @@ namespace Bezier
         position.y += padding.y;
 
         var newTypeTangentStart =
-          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent Start", point.TangentStart.type);
+          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent Start", point.TangentStart.Type);
         position.y += padding.y;
         var newTypeTangentEnd =
-          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent End", point.TangentEnd.type);
+          (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent End", point.TangentEnd.Type);
         EditorGUI.EndDisabledGroup();
 
-        var isModify = point.TangentStart.type != newTypeTangentStart || point.TangentEnd.type != newTypeTangentEnd;
+        var isModify = point.TangentStart.Type != newTypeTangentStart || point.TangentEnd.Type != newTypeTangentEnd;
         if (isModify)
         {
-          point.SetTangentType(newTypeTangentStart, TangentSpace.Start);
-          point.SetTangentType(newTypeTangentEnd, TangentSpace.End);
+          point.SetTangentType(newTypeTangentStart, TangentSelect.Start);
+          point.SetTangentType(newTypeTangentEnd, TangentSelect.End);
           curve.SetActivePoint(point);
         }
       }

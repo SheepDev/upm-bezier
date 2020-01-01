@@ -13,6 +13,7 @@ namespace Bezier
 
     private EditorApplication.CallbackFunction Update;
     private Action<SceneView> SceneGUI;
+    public bool isDebug;
 
     public bool IsEdit => isEdit;
     public BezierCurve Curve => script;
@@ -20,7 +21,7 @@ namespace Bezier
 
     public int ActivePointIndex => activePointIndex;
     public bool IsActivePointIndex => activePointIndex >= 0 && activePointIndex < Curve.Lenght;
-    public BezierPoint ActivePoint => (IsActivePointIndex) ? script.GetWorldPoint(activePointIndex) : default;
+    public BezierPoint ActivePoint => (IsActivePointIndex) ? script.GetPoint(activePointIndex) : default;
 
     public CurveEditor()
     {
@@ -85,12 +86,12 @@ namespace Bezier
     {
       if (activePointIndex < 0) return;
 
-      var oldPoint = script.GetWorldPoint(activePointIndex);
+      var oldPoint = script.GetPoint(activePointIndex);
 
       if (!oldPoint.Equals(point))
       {
         Undo.RecordObject(script, "Set Active Point " + activePointIndex);
-        script.SetWorldPoint(activePointIndex, point);
+        script.SetPoint(activePointIndex, point);
       }
     }
 
