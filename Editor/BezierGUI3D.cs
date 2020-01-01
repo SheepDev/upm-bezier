@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Utility.Editor;
+using static Bezier.BezierPoint;
 
 namespace Bezier
 {
@@ -20,13 +21,32 @@ namespace Bezier
 
       DrawCurve(curveEditor.Curve);
       DrawBezierPoints(curveEditor);
+
+      if (curveEditor.isDebug)
+      {
+        var curve = curveEditor.Curve;
+        var distance = 0f;
+        for (int i = 0; i < curve.Lenght; i++)
+        {
+          var point = curve.GetPoint(i);
+          if (!point.HasNextPoint) continue;
+
+          for (; distance < point.Size; distance += 0.5f)
+          {
+            point.GetPositionAndRotationByDistance(distance, out var position, out var rotation);
+            HandleExtension.RotationAxisView(position, rotation, .2f);
+          }
+
+          distance = Mathf.Abs(distance - point.Size);
+        }
+      }
     }
 
-    private void DrawCurve(BezierCurve curve)
+    public static void DrawCurve(BezierCurve curve)
     {
       for (int index = 0; index < curve.Lenght; index++)
       {
-        var point = curve.GetWorldPoint(index);
+        var point = curve.GetPoint(index);
         if (point.HasNextPoint)
         {
           DrawBezier(point, Color.white);
@@ -34,9 +54,14 @@ namespace Bezier
       }
     }
 
-    private void DrawBezier(BezierPoint point, Color color, float width = 2)
+    private static void DrawBezier(BezierPoint point, Color color, float width = 2)
     {
-      Handles.DrawBezier(point.Position, point.Next.position, point.TangentStartWorldPosition, point.Next.tangentPosition, color, null, width);
+      var positionStart = point.WorldPosition;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
+      var positionTangentEnd = point.NextTangentWorldPosition;
+      var positionEnd = point.NextPointWorldPosition;
+
+      Handles.DrawBezier(positionStart, positionEnd, positionTangentStart, positionTangentEnd, color, null, width);
     }
 
     private void DrawBezierPoints(CurveEditor curveEditor)
@@ -49,12 +74,16 @@ namespace Bezier
 
       for (int index = 0; index < curve.Lenght; index++)
       {
-        var point = curve.GetWorldPoint(index);
+        var point = curve.GetPoint(index);
         var isActiveIndex = curveEditor.ActivePointIndex == index;
 
-        var depthPoint = HandleUtility.WorldToGUIPointWithDepth(point.Position).z;
-        var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(point.TangentStartWorldPosition).z;
-        var depthTangentEnt = HandleUtility.WorldToGUIPointWithDepth(point.TangentEndWorldPosition).z;
+        var positionPoint = point.WorldPosition;
+        var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
+        var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
+
+        var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
+        var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
+        var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
 
         if (isActiveIndex)
         {
@@ -63,12 +92,12 @@ namespace Bezier
         else
         {
           if (curveEditor.IsEdit)
-            draws.Add(new DrawButtonSelectIndex(point.Position, depthPoint, index, SetEditPart));
+            draws.Add(new DrawButtonSelectIndex(positionPoint, depthPoint, index, SetEditPart));
           else
-            draws.Add(new DrawDot(point.Position, depthPoint, colorPoint));
+            draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
 
-          draws.Add(new DrawTangent(point.Position, point.TangentEndWorldPosition, depthTangentEnt, colorTangentEnd));
-          draws.Add(new DrawTangent(point.Position, point.TangentStartWorldPosition, depthTangentStart, colorTangentStart));
+          draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
+          draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
         }
       }
 
@@ -86,25 +115,16 @@ namespace Bezier
 
     private void DrawHandleActivePoint(BezierPoint point, Quaternion curveRotation)
     {
+      var positionPoint = point.WorldPosition;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
+      var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
+
       Handles.color = GetHandleColorBySelectPart(EditPart.TangentStart);
-      Handles.DrawDottedLine(point.Position, point.TangentStartWorldPosition, 5);
+      Handles.DrawDottedLine(positionPoint, positionTangentStart, 5);
       Handles.color = GetHandleColorBySelectPart(EditPart.TangentEnd);
-      Handles.DrawDottedLine(point.Position, point.TangentEndWorldPosition, 5);
+      Handles.DrawDottedLine(positionPoint, positionTangentEnd, 5);
 
-      var position = Vector3.zero;
-      switch (currentSelectPart)
-      {
-        case EditPart.Point:
-          position = point.Position;
-          break;
-        case EditPart.TangentStart:
-          position = point.TangentStartWorldPosition;
-          break;
-        case EditPart.TangentEnd:
-          position = point.TangentEndWorldPosition;
-          break;
-      }
-
+      var position = GetPointPartPosition(point, currentSelectPart);
       var isGlobal = Tools.pivotRotation == PivotRotation.Global;
       var rotation = isGlobal ? Quaternion.identity : curveRotation;
 
@@ -119,10 +139,10 @@ namespace Bezier
             point.SetPosition(newPosition);
             break;
           case EditPart.TangentStart:
-            point.SetTangentPosition(newPosition, TangentSpace.Start);
+            point.SetTangentPosition(newPosition, TangentSelect.Start);
             break;
           case EditPart.TangentEnd:
-            point.SetTangentPosition(newPosition, TangentSpace.End);
+            point.SetTangentPosition(newPosition, TangentSelect.End);
             break;
         }
 
@@ -135,21 +155,7 @@ namespace Bezier
       foreach (EditPart part in Enum.GetValues(typeof(EditPart)))
       {
         if (currentSelectPart == part) continue;
-        var position = Vector3.zero;
-
-        switch (part)
-        {
-          case EditPart.Point:
-            position = point.Position;
-            break;
-          case EditPart.TangentStart:
-            position = point.TangentStartWorldPosition;
-            break;
-          case EditPart.TangentEnd:
-            position = point.TangentEndWorldPosition;
-            break;
-        }
-
+        var position = GetPointPartPosition(point, part);
         var depth = GetDepth(position);
         var color = GetHandleColorBySelectPart(part);
         draws.Add(new DrawButtonEditPart(position, depth, part, color, SetEditPart));
@@ -170,6 +176,20 @@ namespace Bezier
     private float GetDepth(Vector3 position)
     {
       return HandleUtility.WorldToGUIPointWithDepth(position).z;
+    }
+
+    private static Vector3 GetPointPartPosition(BezierPoint point, EditPart part)
+    {
+      switch (part)
+      {
+        case EditPart.Point:
+          return point.WorldPosition;
+        case EditPart.TangentStart:
+          return point.GetTangentPosition(TangentSelect.Start);
+        case EditPart.TangentEnd:
+          return point.GetTangentPosition(TangentSelect.End);
+        default: return default;
+      }
     }
 
     private static Color GetHandleColorBySelectPart(EditPart part)

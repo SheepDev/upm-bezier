@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using static Bezier.BezierPoint;
 
 namespace Bezier
 {
@@ -6,12 +7,27 @@ namespace Bezier
   {
     public static Vector3 GetForward(BezierPoint point)
     {
-      return GetTangent(point.position, point.Next.position, point.TangentStartWorldPosition, point.Next.tangentPosition, 0);
+      return GetTangent(point, 0);
+    }
+
+    public static Vector3 GetForward(BezierPoint point, BezierPoint nextPoint)
+    {
+      var positionStart = point.Position;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start, Space.Self);
+      var positionTangentEnd = nextPoint.GetTangentPosition(TangentSelect.End, Space.Self);
+      var positionEnd = nextPoint.Position;
+
+      return GetTangent(positionStart, positionEnd, positionTangentStart, positionTangentEnd, 0);
     }
 
     public static Vector3 GetTangent(BezierPoint point, float t)
     {
-      return GetTangent(point.Position, point.Next.position, point.TangentStartWorldPosition, point.Next.tangentPosition, t);
+      var positionStart = point.Position;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start, Space.Self);
+      var positionTangentEnd = point.Next.tangentPosition;
+      var positionEnd = point.Next.position;
+
+      return GetTangent(positionStart, positionEnd, positionTangentStart, positionTangentEnd, t);
     }
 
     public static Vector3 GetTangent(Vector3 start, Vector3 End, Vector3 tangentStart, Vector3 tangentEnd, float t)
@@ -21,12 +37,27 @@ namespace Bezier
       return (positionEnd - positionStart).normalized;
     }
 
-    public static Vector3 GetIntervalPosition(BezierPoint point, float t)
+    public static Vector3 GetIntervalWorldPosition(BezierPoint point, float t)
     {
-      return CalculateBezier(point.Position, point.Next.position, point.TangentStartWorldPosition, point.Next.tangentPosition, t);
+      var positionStart = point.WorldPosition;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
+      var positionTangentEnd = point.NextTangentWorldPosition;
+      var positionEnd = point.NextPointWorldPosition;
+
+      return CalculateBezier(positionStart, positionEnd, positionTangentStart, positionTangentEnd, t);
     }
 
-    public static AnimationCurve CalculateSize(BezierPoint point, int resolution = 50, float precision = 1)
+    public static Vector3 GetIntervalLocalPosition(BezierPoint point, float t)
+    {
+      var positionStart = point.Position;
+      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start, Space.Self);
+      var positionTangentEnd = point.Next.tangentPosition;
+      var positionEnd = point.next.position;
+
+      return CalculateBezier(positionStart, positionEnd, positionTangentStart, positionTangentEnd, t);
+    }
+
+    public static AnimationCurve CalculateSize(BezierPoint point, int resolution = 150, float distanceKey = 1)
     {
       var tDistance = new AnimationCurve();
       var step = 1f / resolution;
@@ -38,11 +69,11 @@ namespace Bezier
 
       for (var t = step; t < 1; t += step)
       {
-        var position = MathBezier.GetIntervalPosition(point, t);
+        var position = MathBezier.GetIntervalLocalPosition(point, t);
         distance += Vector3.Distance(position, previousPosition);
         previousPosition = position;
 
-        if (distance >= precision)
+        if (distance >= distanceKey)
         {
           distanceTotal += distance;
           tDistance.AddKey(new Keyframe(distanceTotal, t, 0, 0, 0, 0));
