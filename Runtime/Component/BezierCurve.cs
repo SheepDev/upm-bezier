@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using static Bezier.MathBezier;
-using static Bezier.BezierPointConverter;
+using static Bezier.BezierPoint;
 
 namespace Bezier
 {
@@ -11,11 +10,7 @@ namespace Bezier
     [SerializeField]
     private bool isLoop;
     [SerializeField]
-    private TransformInfo transformInfo;
-    [SerializeField]
     private List<BezierPoint> points;
-    [SerializeField]
-    private List<BezierPoint> worldpoints;
 
     // Cache
     private Transform cacheTransform;
@@ -23,202 +18,181 @@ namespace Bezier
     public int Lenght => points.Count;
     public bool IsLoop => isLoop;
 
-    public BezierCurve()
+    public void SetPoint(int index, BezierPoint point)
     {
-      var tangent1 = new Tangent(Vector3.right * 3, TangentType.Aligned);
-      var tangent2 = new Tangent(-Vector3.right * 3, TangentType.Aligned);
-      var point1 = new BezierPoint(Vector3.zero, tangent1, tangent2);
-      var point2 = new BezierPoint(Vector3.forward * 10, tangent1, tangent2);
-
-      point1.hasNextPoint = true;
-      point1.SetNextPoint(point2);
-      point2.SetNextPoint(point1);
-
-      points = new List<BezierPoint> { point1, point2 };
-      worldpoints = new List<BezierPoint>(points);
-      transformInfo = new TransformInfo(Vector3.zero, Quaternion.identity, Vector3.one);
-    }
-
-    private void Update()
-    {
-      UpdateWorldPoints();
-    }
-
-    public void SetWorldPoint(int index, BezierPoint worldPoint)
-    {
-      var transform = GetTransform();
-      var currentPoint = WorldToLocalPoint(worldPoint, transform);
       var oldPoint = points[index];
+      if (oldPoint.Equals(point)) return;
 
-      if (oldPoint.Equals(currentPoint)) return;
+      var transform = GetTransform();
+      point.transform = transform;
+      points[index] = point;
 
-      if (GetNextPoint(index, out var nextPoint, out var nextIndex))
-      {
-        nextPoint.CheckTangentVector(currentPoint, TangentSpace.End);
-        currentPoint.CheckTangentVector(nextPoint, TangentSpace.Start);
-        currentPoint.SetNextPoint(nextPoint);
+      var previousIndex = GetPreviousPoint(index);
+      var nextIndex = GetNextIndexPoint(index);
 
-        SetPointLocal(nextIndex, nextPoint);
-      }
+      UpdatePoint(previousIndex);
+      UpdatePoint(index);
+      UpdatePoint(nextIndex);
 
-      if (GetPreviousPoint(index, out var previousPoint, out var previousIndex))
-      {
-        currentPoint.CheckTangentVector(previousPoint, TangentSpace.End);
-        previousPoint.CheckTangentVector(currentPoint, TangentSpace.Start);
-        previousPoint.SetNextPoint(currentPoint);
-
-        SetPointLocal(previousIndex, previousPoint);
-      }
-
-      SetPointLocal(index, currentPoint);
-    }
-
-    public void SetPointLocal(int index, BezierPoint localPoint)
-    {
-      points[index] = localPoint;
-      worldpoints[index] = LocalToWorldPoint(localPoint, GetTransform());
+      UpdateRotationPoints(transform.up);
     }
 
     public void SetLoop(bool isLoop)
     {
-      this.isLoop = isLoop;
+      var lastIndex = Lenght - 1;
+      var lastPoint = points[lastIndex];
 
-      var lastPoint = GetLastPoint(points);
-      var lastWorldPoint = GetLastPoint(worldpoints);
-      lastWorldPoint.hasNextPoint = lastPoint.hasNextPoint = isLoop;
-
-      SetLastPoint(points, lastPoint);
-      SetLastPoint(worldpoints, lastWorldPoint);
+      this.isLoop = lastPoint.hasNextPoint = isLoop;
+      points[lastIndex] = lastPoint;
     }
 
-    public void AddWorldPoint(BezierPoint worldpoint)
+    public void AddWorldPoint(BezierPoint newPoint)
     {
-      var transform = GetTransform();
-      var lastWorldPoint = GetLastPoint(worldpoints);
-      worldpoint.hasNextPoint = isLoop;
-      worldpoint.next = lastWorldPoint.next;
+      newPoint.transform = GetTransform();
 
-      lastWorldPoint.hasNextPoint = true;
-      lastWorldPoint.SetNextPoint(worldpoint);
-      SetLastPoint(worldpoints, lastWorldPoint);
-      SetLastPoint(points, WorldToLocalPoint(lastWorldPoint, transform));
+      var lastIndex = Lenght - 1;
+      var lastPoint = points[lastIndex];
+      lastPoint.SetNextPoint(newPoint);
+      lastPoint.hasNextPoint = true;
 
-      var localpoint = WorldToLocalPoint(worldpoint, transform);
-      worldpoints.Add(worldpoint);
-      points.Add(localpoint);
+      var firstPoint = points[0];
+      newPoint.SetNextPoint(firstPoint);
+      newPoint.hasNextPoint = isLoop;
+
+      points[lastIndex] = lastPoint;
+      points.Add(newPoint);
     }
 
-    public BezierPoint GetWorldPoint(int index)
+    public BezierPoint GetPoint(int index)
     {
-      if (index < 0 && index >= points.Count) return default;
-      UpdateWorldPoints();
-      return worldpoints[index];
-    }
+      var point = points[index];
 
-    public BezierPoint[] GetWorldPoints()
-    {
-      UpdateWorldPoints();
-      return worldpoints.ToArray();
+      if (point.transform == null)
+      {
+        point.transform = GetTransform();
+        points[index] = point;
+      }
+
+      return point;
     }
 
     public Transform GetTransform()
     {
-      if (cacheTransform is null)
+      if (cacheTransform == null)
       {
         cacheTransform = transform;
       }
 
-      return cacheTransform;
+      return transform;
     }
 
-    private void UpdateWorldPoints()
+    public int GetNextIndexPoint(int currentIndex)
     {
+      return (int)Mathf.Repeat(currentIndex + 1, Lenght);
+    }
+
+    public int GetPreviousPoint(int currentIndex)
+    {
+      return (int)Mathf.Repeat(currentIndex - 1, Lenght);
+    }
+
+    private void UpdateRotationPoints(Vector3 upwards)
+    {
+      var forward = points[0].Forward;
+      var currentRotation = Quaternion.LookRotation(forward, upwards);
+
+      for (int index = 0; index < Lenght; index++)
+      {
+        var point = points[index];
+        var pointSize = point.Size;
+        var saveSize = pointSize / 10f;
+        var steps = pointSize / 30f;
+        var distanceSave = steps;
+        var distanceTotal = steps;
+
+        point.rotationInfo.Reset();
+        point.rotationInfo.Save(currentRotation, 0);
+
+        do
+        {
+          var t = point.GetInvertalByDistance(distanceTotal);
+          var tangent = MathBezier.GetTangent(point, t);
+          currentRotation = QuaternionUtility.ProjectOnDirection(currentRotation, tangent);
+
+          if (distanceSave >= 1)
+          {
+            point.rotationInfo.Save(currentRotation, distanceTotal);
+            distanceSave = 0;
+          }
+
+          distanceTotal += steps;
+          distanceSave += steps;
+        } while (distanceTotal < pointSize);
+
+        var nextIndex = GetNextIndexPoint(index);
+        var nextPoint = points[nextIndex];
+        currentRotation = QuaternionUtility.ProjectOnDirection(currentRotation, nextPoint.Forward);
+        point.rotationInfo.Save(currentRotation, pointSize);
+        points[index] = point;
+      }
+    }
+
+    private void UpdatePoint(int index)
+    {
+      var previousIndex = GetPreviousPoint(index);
+      var nextIndex = GetNextIndexPoint(index);
+
+      var previousPoint = points[previousIndex];
+      var currentPoint = points[index];
+      var nextPoint = points[nextIndex];
+
+      previousPoint.CheckTangentVector(currentPoint, TangentSelect.Start);
+      currentPoint.CheckTangentVector(nextPoint, TangentSelect.Start);
+      currentPoint.CheckTangentVector(previousPoint, TangentSelect.End);
+      nextPoint.CheckTangentVector(currentPoint, TangentSelect.End);
+
+      previousPoint.SetNextPoint(currentPoint);
+      currentPoint.SetNextPoint(nextPoint);
+
+      previousPoint.UpdateSize();
+      currentPoint.UpdateSize();
+
+      points[previousIndex] = previousPoint;
+      points[index] = currentPoint;
+      points[nextIndex] = nextPoint;
+    }
+
+    private void OnValidate()
+    {
+      var isInvalidPoints = points is null || points.Count > 1;
+      if (isInvalidPoints)
+      {
+        Reset();
+      }
+    }
+
+    private void Reset()
+    {
+      var tangent1 = new Tangent(Vector3.right * 3, TangentType.Aligned);
+      var tangent2 = new Tangent(-Vector3.right * 3, TangentType.Aligned);
+
+      var point1 = new BezierPoint(Vector3.zero, tangent1, tangent2);
+      point1.hasNextPoint = true;
+
+      var point2 = new BezierPoint(Vector3.forward * 10, tangent1, tangent2);
+      point2.next.position = point1.Position;
+      point2.next.tangentPosition = point1.GetTangentPosition(TangentSelect.End, Space.Self);
+
+      point1.SetNextPoint(point2);
+      point2.SetNextPoint(point1);
+
+      point1.UpdateSize(true);
+      point2.UpdateSize(true);
+
+      points = new List<BezierPoint> { point1, point2 };
+
       var transform = GetTransform();
-      var isNeedToUpdate = !transformInfo.Equals(transform);
-
-      if (isNeedToUpdate)
-      {
-        transformInfo = new TransformInfo(transform);
-        worldpoints = LocalToWorldPoints(points, transform);
-      }
-    }
-
-    private BezierPoint GetLastPoint(List<BezierPoint> points)
-    {
-      return points[Lenght - 1];
-    }
-
-    private void SetLastPoint(List<BezierPoint> points, BezierPoint point)
-    {
-      points[Lenght - 1] = point;
-    }
-
-    private bool GetNextPoint(int currentIndex, out BezierPoint nextPoint, out int nextIndex, bool isLoop = true)
-    {
-      var hasNext = isLoop || HasNextPoint(currentIndex);
-      nextIndex = (hasNext) ? (int)Mathf.Repeat(currentIndex + 1, Lenght) : default;
-      nextPoint = (hasNext) ? points[nextIndex] : default;
-      return hasNext;
-    }
-
-    private bool HasNextPoint(int currentIndex)
-    {
-      var nextIndex = currentIndex + 1;
-      return nextIndex < Lenght;
-    }
-
-    private bool GetPreviousPoint(int currentIndex, out BezierPoint previousPoint, out int previousIndex, bool isLoop = true)
-    {
-      var hasPrevious = isLoop || HasPreviousPoint(currentIndex);
-      previousIndex = (hasPrevious) ? (int)Mathf.Repeat(currentIndex - 1, Lenght) : default;
-      previousPoint = (hasPrevious) ? points[previousIndex] : default;
-      return hasPrevious;
-    }
-
-    private bool HasPreviousPoint(int currentIndex)
-    {
-      var previousIndex = currentIndex - 1;
-      return previousIndex >= 0;
-    }
-
-    [System.Serializable]
-    public struct TransformInfo
-    {
-      private Vector3 position;
-      private Vector3 scale;
-      private Quaternion rotation;
-
-      public TransformInfo(Vector3 position, Quaternion rotation, Vector3 scale)
-      {
-        this.position = position;
-        this.scale = scale;
-        this.rotation = rotation;
-      }
-
-      public TransformInfo(Transform transform) : this(transform.position, transform.rotation, transform.lossyScale)
-      {
-      }
-
-      public override bool Equals(object obj)
-      {
-        return obj is TransformInfo info &&
-               position == info.position &&
-               scale == info.scale &&
-               rotation == info.rotation ||
-               obj is Transform transform &&
-               position == transform.position &&
-               scale == transform.lossyScale &&
-               rotation == transform.rotation;
-      }
-
-      public override int GetHashCode()
-      {
-        int hashCode = 701499426;
-        hashCode = hashCode * -1521134295 + position.GetHashCode();
-        hashCode = hashCode * -1521134295 + scale.GetHashCode();
-        hashCode = hashCode * -1521134295 + rotation.GetHashCode();
-        return hashCode;
-      }
+      UpdateRotationPoints(transform.up);
     }
   }
 }
