@@ -28,6 +28,7 @@ namespace Bezier
         for (int index = 0; index < curve.Lenght; index++)
         {
           var point = curve.GetPoint(index);
+          if (!point.HasNextPoint) continue;
 
           for (; distance < point.Size; distance += BezierCurveEditor.Distance)
           {
