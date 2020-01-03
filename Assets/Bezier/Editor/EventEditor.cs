@@ -5,99 +5,89 @@ using static Input.InputEditor;
 
 namespace Bezier
 {
-  public class EventEditor : EditorBehaviour
+  public class EventEditor : EditorBehaviour<SelectCurve>
   {
-    public override void OnUpdate(float deltaTime)
+    public override void Reset()
     {
     }
 
-    public override void OnSceneGUI(SceneView view)
+    public override void BeforeSceneGUI(SelectCurve select)
     {
-      var curveEditor = BezierCurveEditor.activeCurve;
-      var curve = curveEditor.Curve;
+    }
+
+    public override void SceneGUI(SceneView view)
+    {
+      if (GetKeyDown(KeyCode.L, out var lEvent))
+      {
+        foreach (var item in BezierCurveEditor.SelectCurvers)
+        {
+          item.Value.LoopToggle();
+        }
+
+        lEvent.Use();
+      }
 
       if (GetKeyDown(KeyCode.F, out var fEvent))
       {
         Frame(view);
         fEvent.Use();
       }
-
-      if (GetKeyDown(KeyCode.B, out var bEvent))
-      {
-        curveEditor.EditToggle();
-        bEvent.Use();
-      }
-
-      if (GetKeyDown(KeyCode.L, out var lEvent))
-      {
-        curveEditor.SetLoop(!curveEditor.Curve.IsLoop);
-        lEvent.Use();
-      }
-
-      if (!curveEditor.IsEdit) return;
-
-      var random = Random.Range(0, 10);
-
-      if (GetKeyUp(KeyCode.C, out var cEvent))
-      {
-        var lastWorldpoint = curve.GetPoint(curve.Lenght - 1);
-        AddPoint(lastWorldpoint);
-        cEvent.Use();
-      }
-
-      if (GetKeyDown(KeyCode.Escape, out var escapeEvent))
-      {
-        BezierCurveEditor.activeCurve.DisableActivePointIndex();
-        escapeEvent.Use();
-      }
     }
 
     private void Frame(SceneView view)
     {
-      var curveEditor = BezierCurveEditor.activeCurve;
+      var isSelectPointBounds = false;
+
+      foreach (var item in BezierCurveEditor.SelectCurvers)
+      {
+        if (item.Value.IsSelectPoint)
+        {
+          isSelectPointBounds = true;
+          break;
+        }
+      }
+
+      view.Frame((isSelectPointBounds) ? SelectPointBounds() : CurveBounds());
+    }
+
+    private Bounds SelectPointBounds()
+    {
       var bounds = new Bounds();
 
-      if (curveEditor.IsActivePointIndex)
+      foreach (var item in BezierCurveEditor.SelectCurvers)
       {
-        var activePoint = curveEditor.ActivePoint;
-        bounds.center = activePoint.WorldPosition;
-        bounds.Encapsulate(activePoint.GetTangentPosition(TangentSelect.Start));
-        bounds.Encapsulate(activePoint.GetTangentPosition(TangentSelect.End));
+        var select = item.Value;
+        if (!select.IsSelectPoint) continue;
+
+        var selectPoint = select.GetSelectPoint();
+
+        bounds.center = selectPoint.WorldPosition;
+        bounds.Encapsulate(selectPoint.GetTangentPosition(TangentSelect.Start));
+        bounds.Encapsulate(selectPoint.GetTangentPosition(TangentSelect.End));
       }
-      else
+
+      return bounds;
+    }
+
+    private Bounds CurveBounds()
+    {
+      var bounds = new Bounds();
+
+      foreach (var item in BezierCurveEditor.SelectCurvers)
       {
-        var curve = curveEditor.Curve;
+        var curve = item.Value.curve;
         for (var index = 0; index < curve.Lenght; index++)
         {
           var point = curve.GetPoint(index);
           if (index == 0) bounds.center = point.WorldPosition;
+
           bounds.Encapsulate(point.WorldPosition);
           bounds.Encapsulate(point.GetTangentPosition(TangentSelect.Start));
           bounds.Encapsulate(point.GetTangentPosition(TangentSelect.End));
         }
       }
 
-      view.Frame(bounds);
-    }
-
-    private void AddPoint(BezierPoint lastPoint)
-    {
-      var depth = HandleUtility.WorldToGUIPointWithDepth(lastPoint.WorldPosition).z;
-      var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
-
-      var pointWorldPosition = ray.origin + ray.direction * depth;
-      var tangentEndPosition = (lastPoint.GetTangentPosition(TangentSelect.Start) + pointWorldPosition) / 2;
-      var size = Vector3.Distance(tangentEndPosition, pointWorldPosition) / 2;
-
-      var tangentStart = new Tangent(Vector3.right * size, TangentType.Aligned);
-      var tangentEnd = new Tangent(-Vector3.right, TangentType.Aligned);
-
-      var newPoint = new BezierPoint(Vector3.zero, tangentStart, tangentEnd);
-      newPoint.CopyMatrix(lastPoint);
-      newPoint.SetPosition(pointWorldPosition);
-      newPoint.SetTangentPosition(tangentEndPosition, TangentSelect.End);
-
-      BezierCurveEditor.activeCurve.AddPoint(newPoint);
+      return bounds;
     }
   }
 }
