@@ -1,10 +1,8 @@
 using UnityEditor;
 
-namespace Bezier
+public abstract class EditorBehaviour<T>
 {
-  public abstract class EditorBehaviour
-  {
-    public abstract void OnUpdate(float deltaTime);
-    public abstract void OnSceneGUI(SceneView view);
-  }
+  public abstract void BeforeSceneGUI(T script);
+  public abstract void SceneGUI(SceneView view);
+  public abstract void Reset();
 }
