@@ -164,7 +164,7 @@ namespace Bezier
 
     private void OnValidate()
     {
-      var isInvalidPoints = points is null || points.Count > 1;
+      var isInvalidPoints = points is null || points.Count < 2;
       if (isInvalidPoints)
       {
         Reset();
