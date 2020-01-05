@@ -13,6 +13,11 @@ namespace Bezier
 
     public override void BeforeSceneGUI(SelectCurve select)
     {
+      if (GetKeyUp(KeyCode.C, out var cEvent))
+      {
+        BezierGUI3D.IsSplitSpline = !BezierGUI3D.IsSplitSpline;
+        cEvent.Use();
+      }
     }
 
     public override void SceneGUI(SceneView view)
