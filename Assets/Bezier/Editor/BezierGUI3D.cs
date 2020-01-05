@@ -10,6 +10,7 @@ namespace Bezier
   public class BezierGUI3D : EditorBehaviour<SelectCurve>
   {
     public static bool IsSplitSpline;
+    public static bool IsRemovePoint;
 
     private List<DrawStack> draws = new List<DrawStack>();
 
@@ -76,9 +77,13 @@ namespace Bezier
 
           if (select.IsEdit)
           {
-            if (IsSplitSpline && point.HasNextPoint)
+            if (point.HasNextPoint && IsSplitSpline)
             {
               draws.Add(new DrawAddButtonBezierPoint(select, point, index));
+            }
+            else if (point.HasNextPoint && IsRemovePoint)
+            {
+              draws.Add(new DrawRemoveButtonBezierPoint(select, index));
             }
             else
             {
@@ -340,6 +345,43 @@ namespace Bezier
         {
           select.AddPoint(index, .5f);
           BezierGUI3D.IsSplitSpline = false;
+        }
+      }
+    }
+
+    struct DrawRemoveButtonBezierPoint : DrawStack
+    {
+      private readonly SelectCurve select;
+      private readonly int index;
+      private readonly Vector3 position;
+      private readonly float depth;
+
+      public float Depth => depth;
+      public float Layer => 5;
+
+      public DrawRemoveButtonBezierPoint(SelectCurve select, int index)
+      {
+        this.select = select;
+        this.index = index;
+
+        var point = select.curve.GetPoint(index);
+        this.position = point.WorldPosition;
+        depth = GetDepth(position);
+      }
+
+      public int CompareTo(DrawStack other)
+      {
+        var layerCompare = Layer.CompareTo(other.Layer);
+        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
+      }
+
+      public void Draw()
+      {
+        Handles.color = Color.red;
+        if (HandleExtension.DrawButton(position, Handles.SphereHandleCap, .3f))
+        {
+          select.RemovePoint(index);
+          BezierGUI3D.IsRemovePoint = false;
         }
       }
     }
