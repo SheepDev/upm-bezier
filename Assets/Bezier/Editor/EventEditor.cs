@@ -16,7 +16,21 @@ namespace Bezier
       if (GetKeyUp(KeyCode.C, out var cEvent))
       {
         BezierGUI3D.IsSplitSpline = !BezierGUI3D.IsSplitSpline;
+        if (BezierGUI3D.IsSplitSpline)
+        {
+          BezierGUI3D.IsRemovePoint = false;
+        }
         cEvent.Use();
+      }
+
+      if (GetKeyUp(KeyCode.V, out var vEvent))
+      {
+        BezierGUI3D.IsRemovePoint = !BezierGUI3D.IsRemovePoint;
+        if (BezierGUI3D.IsRemovePoint)
+        {
+          BezierGUI3D.IsSplitSpline = false;
+        }
+        vEvent.Use();
       }
     }
 
