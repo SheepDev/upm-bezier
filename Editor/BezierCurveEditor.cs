@@ -143,6 +143,15 @@ namespace Bezier
       curve.Split(index, t);
     }
 
+    public void RemovePoint(int index)
+    {
+      if (curve.Lenght > 2)
+      {
+        Undo.RecordObject(curve, "Remove Point Curver");
+        curve.RemovePoint(index);
+      }
+    }
+
     public void SetPointIndex(int value)
     {
       pointIndex = value;

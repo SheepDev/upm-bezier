@@ -158,6 +158,19 @@ namespace Bezier
       }
     }
 
+    public void RemovePoint(int index)
+    {
+      points.RemoveAt(index);
+
+      var previousIndex = GetPreviousPoint(index);
+      var nextIndex = GetNextIndexPoint(previousIndex);
+      var previousPoint = points[previousIndex];
+      var nextPoint = points[nextIndex];
+
+      UpdatePoint(previousIndex);
+      UpdatePoint(nextIndex);
+    }
+
     private void UpdatePoint(int index)
     {
       var previousIndex = GetPreviousPoint(index);
