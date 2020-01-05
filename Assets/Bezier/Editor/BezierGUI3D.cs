@@ -9,6 +9,8 @@ namespace Bezier
 {
   public class BezierGUI3D : EditorBehaviour<SelectCurve>
   {
+    public static bool IsSplitSpline;
+
     private List<DrawStack> draws = new List<DrawStack>();
 
     public override void Reset()
@@ -66,7 +68,30 @@ namespace Bezier
         var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
         var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
 
-        if (isSelectIndex)
+        if (IsSplitSpline || !isSelectIndex)
+        {
+          var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
+          var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
+          var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
+
+          if (select.IsEdit)
+          {
+            if (IsSplitSpline && point.HasNextPoint)
+            {
+              draws.Add(new DrawAddButtonBezierPoint(select, point, index));
+            }
+            else
+            {
+              draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
+            }
+          }
+          else
+            draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
+
+          draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
+          draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
+        }
+        else
         {
           Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
           Handles.DrawDottedLine(positionPoint, positionTangentStart, 5);
@@ -77,20 +102,6 @@ namespace Bezier
           var depth = GetDepth(position);
           draws.Add(new DrawHandleSelectBezierPart(select, position, depth));
           SelectEditPart(select, point, draws);
-        }
-        else
-        {
-          var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
-          var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
-          var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
-
-          if (select.IsEdit)
-            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
-          else
-            draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
-
-          draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
-          draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
         }
       }
     }
@@ -292,6 +303,43 @@ namespace Bezier
         if (HandleExtension.DrawButton(position, Handles.SphereHandleCap, .3f))
         {
           select.bezierPart = selectPart;
+        }
+      }
+    }
+
+    struct DrawAddButtonBezierPoint : DrawStack
+    {
+      private readonly SelectCurve select;
+      private readonly BezierPoint point;
+      private readonly int index;
+      private Vector3 position;
+      private readonly float depth;
+
+      public float Depth => depth;
+      public float Layer => 5;
+
+      public DrawAddButtonBezierPoint(SelectCurve select, BezierPoint point, int index)
+      {
+        this.select = select;
+        this.point = point;
+        this.index = index;
+        position = MathBezier.GetIntervalWorldPosition(point, .5f);
+        depth = GetDepth(position);
+      }
+
+      public int CompareTo(DrawStack other)
+      {
+        var layerCompare = Layer.CompareTo(other.Layer);
+        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
+      }
+
+      public void Draw()
+      {
+        Handles.color = Color.blue;
+        if (HandleExtension.DrawButton(position, Handles.SphereHandleCap, .3f))
+        {
+          select.AddPoint(index, .5f);
+          BezierGUI3D.IsSplitSpline = false;
         }
       }
     }
