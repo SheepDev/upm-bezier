@@ -45,6 +45,28 @@ namespace Bezier
       this.tangentEnd = tangentEnd;
     }
 
+    public BezierPoint(Vector3 localPosition, Vector3 tangentStart, Vector3 tangentEnd)
+    : this(localPosition,
+    new Tangent(tangentStart - localPosition, TangentType.Free),
+    new Tangent(tangentEnd - localPosition, TangentType.Free))
+    {
+    }
+
+    public BezierPoint Split(float t, out Vector3 tangentStartPosition, out Vector3 tangentEndPosition)
+    {
+      var tangentStart = GetTangentPosition(TangentSelect.Start, Space.Self);
+      tangentStartPosition = Vector3.Lerp(Position, tangentStart, t);
+      tangentEndPosition = Vector3.Lerp(next.position, next.tangentPosition, t);
+      var tangentLerp = Vector3.Lerp(tangentStart, next.tangentPosition, t);
+
+      var position = MathBezier.GetIntervalLocalPosition(this, t);
+      var splitTangentStartPosition = Vector3.Lerp(tangentLerp, tangentEndPosition, t);
+      var splitTangentEndPosition = Vector3.Lerp(tangentStartPosition, tangentLerp, t);
+      var splitPoint = new BezierPoint(position, splitTangentStartPosition, splitTangentEndPosition);
+      splitPoint.CopyMatrix(this);
+      return splitPoint;
+    }
+
     public void SetPosition(Vector3 position, Space space = Space.World)
     {
       if (space == Space.World)
@@ -76,8 +98,10 @@ namespace Bezier
     {
       if (space == Space.World)
       {
-        position = WorldToLocal(position) - this.position;
+        position = WorldToLocal(position);
       }
+
+      position -= this.position;
 
       switch (tangentSpace)
       {
