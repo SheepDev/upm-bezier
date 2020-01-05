@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using static Bezier.BezierPoint;
 
@@ -44,6 +45,26 @@ namespace Bezier
 
       this.isLoop = lastPoint.hasNextPoint = isLoop;
       points[lastIndex] = lastPoint;
+
+    }
+
+    public void Split(int index, float t)
+    {
+      var nextIndexPoint = GetNextIndexPoint(index);
+      var point = points[index];
+      var nextPoint = points[nextIndexPoint];
+      var splitPoint = point.Split(t, out var tangentStartPosition, out var tangentEndPosition);
+
+      point.hasNextPoint = true;
+      point.SetTangentPosition(tangentStartPosition, TangentSelect.Start, Space.Self);
+      nextPoint.SetTangentPosition(tangentEndPosition, TangentSelect.End, Space.Self);
+
+      points[index] = point;
+      points[nextIndexPoint] = nextPoint;
+
+      splitPoint.hasNextPoint = (nextIndexPoint == 0) ? isLoop : true;
+      points.Insert(index + 1, splitPoint);
+      UpdatePoint(index + 1);
     }
 
     public void AddWorldPoint(BezierPoint newPoint)

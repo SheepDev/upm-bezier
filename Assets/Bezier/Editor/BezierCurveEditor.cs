@@ -1,5 +1,6 @@
 ﻿using UnityEditor;
 using System.Collections.Generic;
+using System;
 
 namespace Bezier
 {
@@ -134,6 +135,12 @@ namespace Bezier
       this.curve = curve;
       this.isSelectInHierarchy = true;
       this.SetIsEdit(false);
+    }
+
+    public void AddPoint(int index, float t)
+    {
+      Undo.RecordObject(curve, "Split Curver");
+      curve.Split(index, t);
     }
 
     public void SetPointIndex(int value)
