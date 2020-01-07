@@ -57,6 +57,8 @@ namespace Bezier
       {
         draws.Add(new GuiTangentType(select, maxWidth, position, new Vector2(10, 20)));
         position.y += 60;
+        draws.Add(new GuiRoll(select, maxWidth, position, new Vector2(10, 10)));
+        position.y += 30;
       }
 
       var height = position.y - this.position.y + 10;
@@ -73,7 +75,6 @@ namespace Bezier
 
       var elementSize = new Vector2(size.x - 20, 20);
       draws.Add(new GuiToggle(new Rect(position + new Vector2(10, 10), elementSize)));
-
       draws.Add(new GuiSlide(new Rect(position + new Vector2(10, 40), elementSize)));
     }
 
@@ -255,6 +256,44 @@ namespace Bezier
       public void Draw()
       {
         BezierCurveEditor.IsShowRotationHandle = GUI.Toggle(rect, BezierCurveEditor.IsShowRotationHandle, "Show Rotation");
+      }
+    }
+
+    struct GuiRoll : DrawStack
+    {
+      private readonly SelectCurve select;
+      private readonly float maxWidth;
+      private readonly Vector2 padding;
+      private Vector2 position;
+
+      public float Depth => 0;
+      public float Layer => 1;
+
+      public GuiRoll(SelectCurve select, float maxWidth, Vector2 position, Vector2 padding)
+      {
+        this.select = select;
+        this.maxWidth = maxWidth;
+        this.position = position;
+        this.padding = padding;
+      }
+
+      public int CompareTo(DrawStack other)
+      {
+        var layerCompare = Layer.CompareTo(other.Layer);
+        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
+      }
+
+      public void Draw()
+      {
+        EditorGUI.BeginDisabledGroup(!select.IsSelectPoint);
+        var width = maxWidth - padding.x * 2;
+        var size = new Vector2(width, 20);
+        position.x += padding.x;
+        position.y += padding.y;
+
+        var selectPoint = select.GetSelectPoint();
+        selectPoint.Roll = EditorGUI.FloatField(new Rect(position, size), "Roll", selectPoint.Roll);
+        select.SetSelectPoint(selectPoint);
       }
     }
 
