@@ -24,6 +24,8 @@ namespace Bezier
     private IntervalInfo intervalInfo;
     [SerializeField]
     internal RotationInfo rotationInfo;
+    [SerializeField]
+    private float roll;
 
     public float Size => intervalInfo.size;
     public Vector3 Position => position;
@@ -37,6 +39,8 @@ namespace Bezier
     public Vector3 NextPointWorldPosition => LocalToWorld(next.position);
     public Vector3 NextTangentWorldPosition => LocalToWorld(next.tangentPosition);
     public Vector3 Forward => MathBezier.GetForward(this);
+    public float Roll { get => roll; set => roll = value; }
+    internal bool IsDirty => isDirty;
 
     public BezierPoint(Vector3 localPosition, Tangent tangentStart, Tangent tangentEnd) : this()
     {
@@ -128,7 +132,13 @@ namespace Bezier
 
     public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World)
     {
-      rotation = rotationInfo.GetRotation(distance);
+      var euler = rotationInfo.GetRotation(distance).eulerAngles;
+      var startRoll = rotationInfo.GetRotation(0).eulerAngles.z + roll;
+
+      var t = GetInvertalByDistance(distance);
+      var targetRoll = Mathf.Lerp(startRoll, next.roll, t);
+
+      rotation = Quaternion.Euler(euler.x, euler.y, euler.z + targetRoll);
       if (space == Space.World) rotation = LocalToWorld(rotation);
 
       return GetPositionByDistance(distance, out position);
@@ -178,13 +188,14 @@ namespace Bezier
       var newPosition = point.position;
       var newTangent = point.GetTangentPosition(TangentSelect.End, Space.Self);
 
-      var isEquals = next.position == newPosition && next.tangentPosition == newTangent;
+      var isEquals = next.position == newPosition && next.tangentPosition == newTangent && next.roll == point.roll;
 
       if (!isEquals)
       {
         next.position = newPosition;
         next.tangentPosition = newTangent;
         next.forward = point.Forward;
+        next.roll = point.roll;
 
         isDirty = true;
       }
@@ -192,7 +203,7 @@ namespace Bezier
 
     internal void UpdateSize(bool forceUpdate = false)
     {
-      if (!forceUpdate && !isDirty) return;
+      if (!forceUpdate && !IsDirty) return;
 
       var newInverval = MathBezier.CalculateSize(this);
       intervalInfo.SetInvertal(newInverval);
@@ -276,6 +287,7 @@ namespace Bezier
     {
       return obj is BezierPoint point &&
              position == point.position &&
+             roll == point.roll &&
              tangentStart.Equals(point.tangentStart) &&
              tangentEnd.Equals(point.tangentEnd);
     }
@@ -295,6 +307,7 @@ namespace Bezier
       public Vector3 forward;
       public Vector3 position;
       public Vector3 tangentPosition;
+      public float roll;
     }
 
     [Serializable]

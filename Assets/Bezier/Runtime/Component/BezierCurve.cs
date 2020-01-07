@@ -24,6 +24,7 @@ namespace Bezier
       var oldPoint = points[index];
       if (oldPoint.Equals(point)) return;
 
+      var isDirty = point.IsDirty;
       var transform = GetTransform();
       point.transform = transform;
       points[index] = point;
@@ -35,7 +36,10 @@ namespace Bezier
       UpdatePoint(index);
       UpdatePoint(nextIndex);
 
-      UpdateRotationPoints(transform.up);
+      if (isDirty)
+      {
+        UpdateRotationPoints(transform.up);
+      }
     }
 
     public void SetLoop(bool isLoop)
@@ -45,7 +49,6 @@ namespace Bezier
 
       this.isLoop = lastPoint.hasNextPoint = isLoop;
       points[lastIndex] = lastPoint;
-
     }
 
     public void Split(int index, float t)
@@ -75,6 +78,7 @@ namespace Bezier
       var lastPoint = points[lastIndex];
       lastPoint.SetNextPoint(newPoint);
       lastPoint.hasNextPoint = true;
+
 
       var firstPoint = points[0];
       newPoint.SetNextPoint(firstPoint);
