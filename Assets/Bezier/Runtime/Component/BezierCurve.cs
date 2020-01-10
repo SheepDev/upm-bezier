@@ -43,6 +43,15 @@ namespace Bezier
       UpdateRotation();
     }
 
+    public void SetPointRoll(int index, float roll)
+    {
+      var point = points[index];
+      point.SetRoll(roll);
+      points[index] = point;
+
+      UpdateRoll(index);
+    }
+
     public void SetLoop(bool isLoop)
     {
       this.isLoop = isLoop;
@@ -110,7 +119,7 @@ namespace Bezier
       if (index == Lenght - 1)
       {
         var targetRotation = datas[nextIndex].GetRotation(0);
-        var targetRoll = targetRotation.eulerAngles.z;
+        var targetRoll = targetRotation.eulerAngles.z + nextPoint.GetRoll();
         return new SectionCurve(currentPoint, nextPoint, datas[index], targetRoll);
       }
 
@@ -188,7 +197,27 @@ namespace Bezier
 
         data.UpdateRotation(point, nextPoint, rotation);
         datas[index] = data;
+
+        if (index < Lenght - 1)
+        {
+          nextPoint.inheritRoll = point.inheritRoll + point.GetRoll();
+          points[nextIndex] = nextPoint;
+        }
+
         rotation = data.GetRotation(data.GetCurveSize());
+      }
+    }
+
+    private void UpdateRoll(int beginIndex)
+    {
+      for (int index = beginIndex; index < Lenght - 1; index++)
+      {
+        var nextIndex = GetNextIndexPoint(index);
+        var point = points[index];
+        var nextPoint = points[nextIndex];
+
+        nextPoint.inheritRoll = point.inheritRoll + point.GetRoll();
+        points[nextIndex] = nextPoint;
       }
     }
 

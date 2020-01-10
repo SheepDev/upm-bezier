@@ -1,5 +1,6 @@
 ﻿using UnityEditor;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Bezier
 {
@@ -8,8 +9,13 @@ namespace Bezier
   {
     private static EditorBehaviour<SelectCurve>[] behaviours;
     public static Dictionary<int, SelectCurve> SelectCurvers { get; private set; }
-    public static bool IsShowRotationHandle { get; internal set; }
+
     public static float Distance { get; internal set; }
+    public static bool IsShowRotationHandle { get; internal set; }
+    public static bool IsNormalizeRotationHandle;
+    public static bool IsInheritRoll;
+    public static bool IsUseUpwards;
+    public static Vector3 Upwards = Vector3.up;
 
     static BezierCurveEditor()
     {
@@ -35,7 +41,14 @@ namespace Bezier
 
         foreach (var item in SelectCurvers)
         {
-          behaviour.BeforeSceneGUI(item.Value);
+          try
+          {
+            behaviour.BeforeSceneGUI(item.Value);
+          }
+          catch (System.Exception)
+          {
+            SelectCurvers.Clear();
+          }
         }
 
         behaviour.SceneGUI(view);
@@ -184,6 +197,18 @@ namespace Bezier
       {
         Undo.RecordObject(curve, "Set Point " + PointIndex + " in " + curve.GetHashCode());
         curve.SetPoint(PointIndex, point);
+      }
+    }
+
+    public void SetSelectPointRoll(float roll)
+    {
+      if (PointIndex < 0) return;
+      var point = curve.GetPoint(PointIndex);
+
+      if (point.GetRoll() != roll)
+      {
+        Undo.RecordObject(curve, "Set Roll Point " + PointIndex + " in " + curve.GetHashCode());
+        curve.SetPointRoll(pointIndex, roll);
       }
     }
 

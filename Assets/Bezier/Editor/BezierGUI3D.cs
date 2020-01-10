@@ -33,7 +33,18 @@ namespace Bezier
           var section = curve.GetSection(index);
           for (; distance < section.Size; distance += BezierCurveEditor.Distance)
           {
-            section.GetPositionAndRotationByDistance(distance, out var position, out var rotation, Space.World, true);
+            var position = Vector3.zero;
+            var rotation = Quaternion.identity;
+
+            if (BezierCurveEditor.IsUseUpwards)
+            {
+              section.GetPositionAndRotationByDistance(distance, out position, out rotation, BezierCurveEditor.Upwards);
+            }
+            else
+            {
+              section.GetPositionAndRotationByDistance(distance, out position, out rotation, Space.World, BezierCurveEditor.IsNormalizeRotationHandle, BezierCurveEditor.IsInheritRoll);
+            }
+
             HandleExtension.RotationAxisView(position, rotation);
           }
 
