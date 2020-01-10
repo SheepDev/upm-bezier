@@ -53,7 +53,7 @@ namespace Bezier
       draws.Add(new GuiEditButton(select, maxWidth, buttonPosition, new Vector2(200, 50)));
       position.y += 60;
 
-      if (select.IsEdit)
+      if (select.IsEdit && select.IsSelectPoint)
       {
         draws.Add(new GuiTangentType(select, maxWidth, position, new Vector2(10, 20)));
         position.y += 60;
@@ -211,8 +211,6 @@ namespace Bezier
       public void Draw()
       {
         var point = select.GetSelectPoint();
-
-        EditorGUI.BeginDisabledGroup(!select.IsSelectPoint);
         var width = maxWidth - padding.x * 2;
         var size = new Vector2(width, 10);
         position.x += padding.x;
@@ -223,7 +221,6 @@ namespace Bezier
         position.y += padding.y;
         var newTypeTangentEnd =
           (TangentType)EditorGUI.EnumPopup(new Rect(position, size), "Type Tangent End", point.TangentEnd.Type);
-        EditorGUI.EndDisabledGroup();
 
         var isModify = point.TangentStart.Type != newTypeTangentStart || point.TangentEnd.Type != newTypeTangentEnd;
         if (isModify)
@@ -292,7 +289,7 @@ namespace Bezier
         position.y += padding.y;
 
         var selectPoint = select.GetSelectPoint();
-        selectPoint.Roll = EditorGUI.FloatField(new Rect(position, size), "Roll", selectPoint.Roll);
+        selectPoint.roll = EditorGUI.FloatField(new Rect(position, size), "Roll", selectPoint.roll);
         select.SetSelectPoint(selectPoint);
       }
     }
