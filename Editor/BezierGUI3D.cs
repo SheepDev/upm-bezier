@@ -28,18 +28,16 @@ namespace Bezier
       {
         var curve = select.curve;
         var distance = 0f;
-        for (int index = 0; index < curve.Lenght; index++)
+        for (var index = 0; index < curve.Lenght; index++)
         {
-          var point = curve.GetPoint(index);
-          if (!point.HasNextPoint) continue;
-
-          for (; distance < point.Size; distance += BezierCurveEditor.Distance)
+          var section = curve.GetSection(index);
+          for (; distance < section.Size; distance += BezierCurveEditor.Distance)
           {
-            point.GetPositionAndRotationByDistance(distance, out var position, out var rotation);
-            HandleExtension.RotationAxisView(position, rotation, .2f);
+            section.GetPositionAndRotationByDistance(distance, out var position, out var rotation, Space.World, true);
+            HandleExtension.RotationAxisView(position, rotation);
           }
 
-          distance = Mathf.Abs(distance - point.Size);
+          distance -= section.Size;
         }
       }
     }
@@ -60,88 +58,82 @@ namespace Bezier
       var colorTangentEnd = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
       var colorTangentStart = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
 
-      for (int index = 0; index < curve.Lenght; index++)
+      for (var index = 0; index < curve.Lenght; index++)
       {
         var point = curve.GetPoint(index);
-        var isSelectIndex = select.PointIndex == index;
-
         var positionPoint = point.WorldPosition;
         var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
         var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
 
-        if (IsSplitSpline || !isSelectIndex)
+        var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
+        var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
+        var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
+
+        if (select.IsEdit)
         {
-          var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
-          var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
-          var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
-
-          if (select.IsEdit)
+          if (IsSplitSpline)
           {
-            if (point.HasNextPoint && IsSplitSpline)
-            {
-              draws.Add(new DrawAddButtonBezierPoint(select, point, index));
-            }
-            else if (point.HasNextPoint && IsRemovePoint)
-            {
-              draws.Add(new DrawRemoveButtonBezierPoint(select, index));
-            }
-            else
-            {
-              draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
-            }
-          }
-          else
+            draws.Add(new DrawAddButtonBezierPoint(select, index));
             draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
-
-          draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
-          draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
+          }
+          else if (IsRemovePoint)
+          {
+            draws.Add(new DrawRemoveButtonBezierPoint(select, index));
+          }
+          else if (select.PointIndex != index)
+          {
+            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
+          }
         }
         else
         {
-          Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
-          Handles.DrawDottedLine(positionPoint, positionTangentStart, 5);
-          Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
-          Handles.DrawDottedLine(positionPoint, positionTangentEnd, 5);
-
-          var position = GetPointPartPosition(point, select.bezierPart);
-          var depth = GetDepth(position);
-          draws.Add(new DrawHandleSelectBezierPart(select, position, depth));
-          SelectEditPart(select, point, draws);
+          draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
         }
+
+        draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
+        draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
       }
-    }
 
-    private void SelectEditPart(SelectCurve select, BezierPoint point, List<DrawStack> draws)
-    {
-      foreach (SelectBezierPart part in Enum.GetValues(typeof(SelectBezierPart)))
+      if (select.IsSelectPoint && !(IsSplitSpline ^ IsRemovePoint))
       {
-        if (select.bezierPart == part) continue;
+        var index = select.PointIndex;
+        var point = select.curve.GetPoint(index);
 
-        var position = GetPointPartPosition(point, part);
-        var depth = GetDepth(position);
-        var color = GetHandleColorBySelectPart(part);
-        draws.Add(new DrawButtonSelectBezierPart(select, position, depth, part, color));
+        Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
+        Handles.DrawDottedLine(point.WorldPosition, point.GetTangentPosition(TangentSelect.Start), 5);
+        Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
+        Handles.DrawDottedLine(point.WorldPosition, point.GetTangentPosition(TangentSelect.End), 5);
+
+        var handlePosition = GetPointPartPosition(point, select.bezierPart);
+        var handleDepth = GetDepth(handlePosition);
+        draws.Add(new DrawHandleSelectBezierPart(select, handlePosition, handleDepth));
+
+        foreach (SelectBezierPart part in Enum.GetValues(typeof(SelectBezierPart)))
+        {
+          if (select.bezierPart == part) continue;
+
+          var position = GetPointPartPosition(point, part);
+          var depth = GetDepth(position);
+          var color = GetHandleColorBySelectPart(part);
+          draws.Add(new DrawButtonSelectBezierPart(select, position, depth, part, color));
+        }
       }
     }
 
     public static void DrawCurve(BezierCurve curve)
     {
-      for (int index = 0; index < curve.Lenght; index++)
+      foreach (var item in curve)
       {
-        var point = curve.GetPoint(index);
-        if (point.HasNextPoint)
-        {
-          DrawBezier(point, Color.white);
-        }
+        DrawBezier(item, Color.white);
       }
     }
 
-    private static void DrawBezier(BezierPoint point, Color color, float width = 2)
+    private static void DrawBezier(SectionCurve section, Color color, float width = 2)
     {
-      var positionStart = point.WorldPosition;
-      var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
-      var positionTangentEnd = point.NextTangentWorldPosition;
-      var positionEnd = point.NextPointWorldPosition;
+      var positionStart = section.GetPosition(0);
+      var positionTangentStart = section.CurrentPoint.GetTangentPosition(TangentSelect.Start);
+      var positionTangentEnd = section.NextPoint.GetTangentPosition(TangentSelect.End);
+      var positionEnd = section.GetPosition(1);
 
       Handles.DrawBezier(positionStart, positionEnd, positionTangentStart, positionTangentEnd, color, null, width);
     }
@@ -315,20 +307,19 @@ namespace Bezier
     struct DrawAddButtonBezierPoint : DrawStack
     {
       private readonly SelectCurve select;
-      private readonly BezierPoint point;
       private readonly int index;
-      private Vector3 position;
+      private readonly Vector3 position;
       private readonly float depth;
 
       public float Depth => depth;
       public float Layer => 5;
 
-      public DrawAddButtonBezierPoint(SelectCurve select, BezierPoint point, int index)
+      public DrawAddButtonBezierPoint(SelectCurve select, int index)
       {
         this.select = select;
-        this.point = point;
         this.index = index;
-        position = MathBezier.GetIntervalWorldPosition(point, .5f);
+        var section = select.curve.GetSection(index);
+        position = section.GetPosition(.5f);
         depth = GetDepth(position);
       }
 
