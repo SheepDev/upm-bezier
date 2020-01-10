@@ -1,46 +1,107 @@
-using Bezier;
 using UnityEngine;
 
-public class BezierFollow : MonoBehaviour
+namespace Bezier
 {
-  public BezierCurve curve;
-  public float speed;
-
-  private int currentIndex;
-  private float currentDistance;
-  private Transform cacheTransform;
-
-  private void Update()
+  public class BezierFollow : MonoBehaviour
   {
-    var transform = GetTransform();
-    MoveObject(transform);
-    currentDistance += speed * Time.deltaTime;
-  }
+    [Header("Setup")]
+    public BezierCurve curve;
+    public float speed;
 
-  private void MoveObject(Transform transform)
-  {
-    var section = curve.GetSection(currentIndex);
+    [Header("Config")]
+    public bool isNormalizeRoll;
+    public bool isUseUpwards;
+    public bool isInheritRoll;
 
-    if (section.GetPositionAndRotationByDistance(currentDistance, out var position, out var rotation, Space.World, true))
+    [Header("Extra Config")]
+    public bool isConstantUpwards;
+    public bool isOverwriteUpwards;
+
+    [SerializeField]
+    private Vector3 overwriteUpwards;
+
+    [HideInInspector]
+    [SerializeField]
+    private Vector3 constantUpwards;
+
+    [HideInInspector]
+    [SerializeField]
+    private int currentIndex;
+    [HideInInspector]
+    [SerializeField]
+    private float currentDistance;
+    private Transform cacheTransform;
+
+    public Vector3 OverwriteUpwards { get => overwriteUpwards; set => overwriteUpwards = value.normalized; }
+
+    private void OnEnable()
     {
-      transform.position = position;
-      transform.rotation = rotation;
+      if (curve is null)
+      {
+        enabled = false;
+        return;
+      }
+
+      if (isConstantUpwards)
+      {
+        constantUpwards = GetTransform().up;
+      }
     }
-    else
+
+    private void Update()
     {
-      currentIndex = curve.GetNextIndexPoint(currentIndex);
-      currentDistance -= section.Size;
+      var transform = GetTransform();
       MoveObject(transform);
+      currentDistance += speed * Time.deltaTime;
     }
-  }
 
-  public Transform GetTransform()
-  {
-    if (cacheTransform == null)
+    private void MoveObject(Transform transform)
     {
-      cacheTransform = transform;
+      var section = curve.GetSection(currentIndex);
+
+      if (GetPositionAndRotation(section, out var position, out var rotation))
+      {
+        transform.position = position;
+        transform.rotation = rotation;
+      }
+      else
+      {
+        currentIndex = curve.GetNextIndexPoint(currentIndex);
+        currentDistance -= section.Size;
+        MoveObject(transform);
+      }
     }
 
-    return cacheTransform;
+    private bool GetPositionAndRotation(SectionCurve section, out Vector3 position, out Quaternion rotation)
+    {
+      if (isUseUpwards)
+      {
+        var upwards = GetUpward();
+        return section.GetPositionAndRotationByDistance(currentDistance, out position, out rotation, upwards);
+      }
+
+      return section.GetPositionAndRotationByDistance(currentDistance, out position, out rotation, Space.World, isNormalizeRoll, isInheritRoll);
+    }
+
+    private Vector3 GetUpward()
+    {
+      if (isOverwriteUpwards) return OverwriteUpwards;
+      return (isConstantUpwards) ? constantUpwards : GetTransform().up;
+    }
+
+    public Transform GetTransform()
+    {
+      if (cacheTransform == null)
+      {
+        cacheTransform = transform;
+      }
+
+      return cacheTransform;
+    }
+
+    private void OnValidate()
+    {
+      overwriteUpwards = (overwriteUpwards == Vector3.zero) ? Vector3.up : overwriteUpwards.normalized;
+    }
   }
 }
