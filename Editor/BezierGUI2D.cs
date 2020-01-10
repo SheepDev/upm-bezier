@@ -69,13 +69,12 @@ namespace Bezier
     private void EditorGUI2D(SceneView view)
     {
       var rectCamera = view.camera.pixelRect;
-      var size = new Vector2(150, 70);
+      var size = new Vector2(150, 170);
       var position = rectCamera.size - size - new Vector2(10, 10);
       draws.Add(new GuiBackground(new Rect(position, size), new Color(1, 1, 1, .3f)));
 
       var elementSize = new Vector2(size.x - 20, 20);
-      draws.Add(new GuiToggle(new Rect(position + new Vector2(10, 10), elementSize)));
-      draws.Add(new GuiSlide(new Rect(position + new Vector2(10, 40), elementSize)));
+      draws.Add(new GuiRotationConfig(new Rect(position, elementSize)));
     }
 
     struct GuiBackground : DrawStack
@@ -232,6 +231,46 @@ namespace Bezier
       }
     }
 
+    struct GuiRotationConfig : DrawStack
+    {
+      private Rect rect;
+
+      public float Depth => 0;
+      public float Layer => 1;
+
+      public GuiRotationConfig(Rect rect)
+      {
+        this.rect = rect;
+      }
+
+      public int CompareTo(DrawStack other)
+      {
+        var layerCompare = Layer.CompareTo(other.Layer);
+        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
+      }
+
+      public void Draw()
+      {
+        rect.position += new Vector2(10, 10);
+        BezierCurveEditor.IsShowRotationHandle = GUI.Toggle(rect, BezierCurveEditor.IsShowRotationHandle, "Show Rotation");
+        rect.position += new Vector2(0, 20);
+        BezierCurveEditor.IsNormalizeRotationHandle = GUI.Toggle(rect, BezierCurveEditor.IsNormalizeRotationHandle, "Is Normalize");
+        rect.position += new Vector2(0, 20);
+        BezierCurveEditor.IsInheritRoll = GUI.Toggle(rect, BezierCurveEditor.IsInheritRoll, "Use Inherit Roll");
+        rect.position += new Vector2(0, 20);
+        BezierCurveEditor.IsUseUpwards = GUI.Toggle(rect, BezierCurveEditor.IsUseUpwards, "Use upwards");
+
+        EditorGUI.BeginDisabledGroup(!BezierCurveEditor.IsUseUpwards);
+        rect.position += new Vector2(0, 25);
+        BezierCurveEditor.Upwards = EditorGUI.Vector3Field(rect, "Upwards", BezierCurveEditor.Upwards);
+        EditorGUI.EndDisabledGroup();
+
+        rect.position += new Vector2(0, 50);
+        BezierCurveEditor.Distance =
+        GUI.HorizontalSlider(rect, BezierCurveEditor.Distance, 1, 5);
+      }
+    }
+
     struct GuiToggle : DrawStack
     {
       private readonly Rect rect;
@@ -289,8 +328,8 @@ namespace Bezier
         position.y += padding.y;
 
         var selectPoint = select.GetSelectPoint();
-        selectPoint.roll = EditorGUI.FloatField(new Rect(position, size), "Roll", selectPoint.roll);
-        select.SetSelectPoint(selectPoint);
+        var roll = EditorGUI.FloatField(new Rect(position, size), "Roll", selectPoint.GetRoll());
+        select.SetSelectPointRoll(roll);
       }
     }
 

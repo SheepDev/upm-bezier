@@ -52,7 +52,7 @@ namespace Bezier
     [SerializeField]
     private AnimationCurve intervalCurve;
 
-    public float Size => intervalCurve.keys[intervalCurve.keys.Length - 1].time;
+    public float Size => (intervalCurve.keys.Length != 0) ? intervalCurve.keys[intervalCurve.keys.Length - 1].time : 0;
 
     private IntervalInfo(AnimationCurve curve) : this()
     {

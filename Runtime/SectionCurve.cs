@@ -42,10 +42,10 @@ namespace Bezier
       return GetPosition(t, space);
     }
 
-    public Quaternion GetRotation(float t, Space space = Space.World, bool isNormalizeRoll = false)
+    public Quaternion GetRotation(float t, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
     {
       var distance = Size * t;
-      return GetRotationByDistance(distance, space, isNormalizeRoll);
+      return GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
     }
 
     public Quaternion GetRotation(float t, Vector3 upwards, Space space = Space.World)
@@ -54,7 +54,7 @@ namespace Bezier
       return GetRotationByDistance(distance, upwards, space);
     }
 
-    public Quaternion GetRotationByDistance(float distance, Space space = Space.World, bool isNormalizeRoll = false)
+    public Quaternion GetRotationByDistance(float distance, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
     {
       var rotation = data.GetRotation(distance);
 
@@ -68,6 +68,14 @@ namespace Bezier
 
         rotation = Quaternion.Euler(euler.x, euler.y, currentRoll);
       }
+      else
+      {
+        var t = GetInvertalByDistance(distance);
+        var plusRoll = Mathf.Lerp(currentPoint.GetRoll(isInheritRoll), nextPoint.GetRoll(isInheritRoll), t);
+
+        var euler = rotation.eulerAngles;
+        rotation = Quaternion.Euler(euler.x, euler.y, euler.z + plusRoll);
+      }
 
       return rotation;
     }
@@ -78,10 +86,10 @@ namespace Bezier
       return Quaternion.LookRotation(forward, upwards);
     }
 
-    public bool GetPositionAndRotation(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false)
+    public bool GetPositionAndRotation(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
     {
       position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, space, isNormalizeRoll);
+      rotation = GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
       return distance <= Size;
     }
 
@@ -92,10 +100,10 @@ namespace Bezier
       return distance <= Size;
     }
 
-    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false)
+    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
     {
       position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, space, isNormalizeRoll);
+      rotation = GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
       return distance <= Size;
     }
 
