@@ -15,32 +15,16 @@ namespace Bezier
     [SerializeField]
     internal Tangent tangentEnd;
     [SerializeField]
-    internal bool hasNextPoint;
-    [SerializeField]
-    internal NeighborPointInfo next;
-    [SerializeField]
-    private bool isDirty;
-    [SerializeField]
-    private IntervalInfo intervalInfo;
-    [SerializeField]
-    internal RotationInfo rotationInfo;
-    [SerializeField]
-    private float roll;
+    internal bool isDirty;
+    public float roll;
 
-    public float Size => intervalInfo.size;
     public Vector3 Position => position;
     public Vector3 WorldPosition => LocalToWorld(position);
 
     public Tangent TangentStart => tangentStart;
     public Tangent TangentEnd => tangentEnd;
 
-    public bool HasNextPoint => hasNextPoint;
-    public NeighborPointInfo Next => next;
-    public Vector3 NextPointWorldPosition => LocalToWorld(next.position);
-    public Vector3 NextTangentWorldPosition => LocalToWorld(next.tangentPosition);
-    public Vector3 Forward => MathBezier.GetForward(this);
-    public float Roll { get => roll; set => roll = value; }
-    internal bool IsDirty => isDirty;
+    public Vector3 Forward => tangentStart.localPosition.normalized;
 
     public BezierPoint(Vector3 localPosition, Tangent tangentStart, Tangent tangentEnd) : this()
     {
@@ -54,21 +38,6 @@ namespace Bezier
     new Tangent(tangentStart - localPosition, TangentType.Free),
     new Tangent(tangentEnd - localPosition, TangentType.Free))
     {
-    }
-
-    public BezierPoint Split(float t, out Vector3 tangentStartPosition, out Vector3 tangentEndPosition)
-    {
-      var tangentStart = GetTangentPosition(TangentSelect.Start, Space.Self);
-      tangentStartPosition = Vector3.Lerp(Position, tangentStart, t);
-      tangentEndPosition = Vector3.Lerp(next.position, next.tangentPosition, t);
-      var tangentLerp = Vector3.Lerp(tangentStart, next.tangentPosition, t);
-
-      var position = MathBezier.GetIntervalLocalPosition(this, t);
-      var splitTangentStartPosition = Vector3.Lerp(tangentLerp, tangentEndPosition, t);
-      var splitTangentEndPosition = Vector3.Lerp(tangentStartPosition, tangentLerp, t);
-      var splitPoint = new BezierPoint(position, splitTangentStartPosition, splitTangentEndPosition);
-      splitPoint.CopyMatrix(this);
-      return splitPoint;
     }
 
     public void SetPosition(Vector3 position, Space space = Space.World)
@@ -123,37 +92,6 @@ namespace Bezier
       transform = point.transform;
     }
 
-    public bool GetPositionByDistance(float distance, out Vector3 position, Space space = Space.World)
-    {
-      var t = intervalInfo.GetInverval(distance);
-      position = GetPosition(t, space);
-      return distance < Size;
-    }
-
-    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World)
-    {
-      var euler = rotationInfo.GetRotation(distance).eulerAngles;
-      var startRoll = rotationInfo.GetRotation(0).eulerAngles.z + roll;
-
-      var t = GetInvertalByDistance(distance);
-      var targetRoll = Mathf.Lerp(startRoll, next.roll, t);
-
-      rotation = Quaternion.Euler(euler.x, euler.y, euler.z + targetRoll);
-      if (space == Space.World) rotation = LocalToWorld(rotation);
-
-      return GetPositionByDistance(distance, out position);
-    }
-
-    public float GetInvertalByDistance(float distance)
-    {
-      return intervalInfo.GetInverval(distance);
-    }
-
-    public Vector3 GetPosition(float t, Space space = Space.World)
-    {
-      return (space == Space.World) ? MathBezier.GetIntervalWorldPosition(this, t) : MathBezier.GetIntervalLocalPosition(this, t);
-    }
-
     public Vector3 GetTangentPosition(TangentSelect tangent, Space space = Space.World)
     {
       var position = this.position;
@@ -181,33 +119,6 @@ namespace Bezier
           UpdateVector(referencePoint.Position, ref tangentEnd, ref tangentStart);
           break;
       }
-    }
-
-    internal void SetNextPoint(BezierPoint point)
-    {
-      var newPosition = point.position;
-      var newTangent = point.GetTangentPosition(TangentSelect.End, Space.Self);
-
-      var isEquals = next.position == newPosition && next.tangentPosition == newTangent && next.roll == point.roll;
-
-      if (!isEquals)
-      {
-        next.position = newPosition;
-        next.tangentPosition = newTangent;
-        next.forward = point.Forward;
-        next.roll = point.roll;
-
-        isDirty = true;
-      }
-    }
-
-    internal void UpdateSize(bool forceUpdate = false)
-    {
-      if (!forceUpdate && !IsDirty) return;
-
-      var newInverval = MathBezier.CalculateSize(this);
-      intervalInfo.SetInvertal(newInverval);
-      isDirty = false;
     }
 
     private void UpdateVector(Vector3 lookAt, ref Tangent updated, ref Tangent other)
@@ -259,7 +170,7 @@ namespace Bezier
       }
     }
 
-    public Vector3 AlignPosition(Tangent tangent, Tangent reference)
+    private Vector3 AlignPosition(Tangent tangent, Tangent reference)
     {
       var direction = -reference.localPosition.normalized;
       if (direction == Vector3.zero) return tangent.localPosition;
@@ -299,73 +210,6 @@ namespace Bezier
       hashCode *= -1521134295 + tangentStart.GetHashCode();
       hashCode *= -1521134295 + tangentEnd.GetHashCode();
       return hashCode;
-    }
-
-    [Serializable]
-    public struct NeighborPointInfo
-    {
-      public Vector3 forward;
-      public Vector3 position;
-      public Vector3 tangentPosition;
-      public float roll;
-    }
-
-    [Serializable]
-    public struct IntervalInfo
-    {
-      public AnimationCurve inverval;
-      public float size;
-
-      public void Reset()
-      {
-        inverval = new AnimationCurve();
-      }
-
-      public void SetInvertal(AnimationCurve interval)
-      {
-        this.inverval = interval;
-        size = inverval[interval.length - 1].time;
-      }
-
-      public float GetInverval(float distance)
-      {
-        return this.inverval.Evaluate(distance);
-      }
-    }
-
-    [Serializable]
-    public struct RotationInfo
-    {
-      public AnimationCurve x;
-      public AnimationCurve y;
-      public AnimationCurve z;
-      public AnimationCurve w;
-
-      public void Reset()
-      {
-        x = new AnimationCurve();
-        y = new AnimationCurve();
-        z = new AnimationCurve();
-        w = new AnimationCurve();
-      }
-
-      public void Save(Quaternion rotation, float time)
-      {
-        x.AddKey(new Keyframe(time, rotation.x, 0, 0, 0, 0));
-        y.AddKey(new Keyframe(time, rotation.y, 0, 0, 0, 0));
-        z.AddKey(new Keyframe(time, rotation.z, 0, 0, 0, 0));
-        w.AddKey(new Keyframe(time, rotation.w, 0, 0, 0, 0));
-      }
-
-      public Quaternion GetRotation(float time)
-      {
-        var x = this.x.Evaluate(time);
-        var y = this.y.Evaluate(time);
-        var z = this.z.Evaluate(time);
-        var w = this.w.Evaluate(time);
-
-        return new Quaternion(x, y, z, w);
-      }
     }
 
     public enum TangentSelect

@@ -14,15 +14,14 @@ public class BezierFollow : MonoBehaviour
   {
     var transform = GetTransform();
     MoveObject(transform);
-
     currentDistance += speed * Time.deltaTime;
   }
 
   private void MoveObject(Transform transform)
   {
-    var point = curve.GetPoint(currentIndex);
+    var section = curve.GetSection(currentIndex);
 
-    if (point.GetPositionAndRotationByDistance(currentDistance, out var position, out var rotation))
+    if (section.GetPositionAndRotationByDistance(currentDistance, out var position, out var rotation, Space.World, true))
     {
       transform.position = position;
       transform.rotation = rotation;
@@ -30,7 +29,7 @@ public class BezierFollow : MonoBehaviour
     else
     {
       currentIndex = curve.GetNextIndexPoint(currentIndex);
-      currentDistance = point.Size - currentDistance;
+      currentDistance -= section.Size;
       MoveObject(transform);
     }
   }

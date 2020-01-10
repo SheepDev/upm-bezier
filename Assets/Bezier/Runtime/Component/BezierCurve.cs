@@ -1,17 +1,18 @@
-﻿using System;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using static Bezier.BezierPoint;
 
 namespace Bezier
 {
-  [ExecuteInEditMode]
-  public class BezierCurve : MonoBehaviour
+  public class BezierCurve : MonoBehaviour, IEnumerable<SectionCurve>
   {
     [SerializeField]
     private bool isLoop;
     [SerializeField]
     private List<BezierPoint> points;
+    [SerializeField]
+    private List<PointData> datas;
 
     // Cache
     private Transform cacheTransform;
@@ -24,68 +25,67 @@ namespace Bezier
       var oldPoint = points[index];
       if (oldPoint.Equals(point)) return;
 
-      var isDirty = point.IsDirty;
       var transform = GetTransform();
       point.transform = transform;
       points[index] = point;
 
-      var previousIndex = GetPreviousPoint(index);
+      var previousIndex = GetPreviousIndexPoint(index);
       var nextIndex = GetNextIndexPoint(index);
 
-      UpdatePoint(previousIndex);
-      UpdatePoint(index);
-      UpdatePoint(nextIndex);
+      CheckPoint(previousIndex);
+      CheckPoint(index);
+      CheckPoint(nextIndex);
 
-      if (isDirty)
-      {
-        UpdateRotationPoints(transform.up);
-      }
+      UpdateDataSize(previousIndex);
+      UpdateDataSize(index);
+      UpdateDataSize(nextIndex);
+
+      UpdateRotation();
     }
 
     public void SetLoop(bool isLoop)
     {
-      var lastIndex = Lenght - 1;
-      var lastPoint = points[lastIndex];
-
-      this.isLoop = lastPoint.hasNextPoint = isLoop;
-      points[lastIndex] = lastPoint;
+      this.isLoop = isLoop;
     }
 
     public void Split(int index, float t)
     {
-      var nextIndexPoint = GetNextIndexPoint(index);
-      var point = points[index];
-      var nextPoint = points[nextIndexPoint];
-      var splitPoint = point.Split(t, out var tangentStartPosition, out var tangentEndPosition);
+      var section = GetSection(index);
+      var splitPoint = section.Split(t, out var tangentStartPosition, out var tangentEndPosition);
+      splitPoint.isDirty = true;
 
-      point.hasNextPoint = true;
-      point.SetTangentPosition(tangentStartPosition, TangentSelect.Start, Space.Self);
-      nextPoint.SetTangentPosition(tangentEndPosition, TangentSelect.End, Space.Self);
+      section.currentPoint.SetTangentPosition(tangentStartPosition, TangentSelect.Start, Space.Self);
+      section.nextPoint.SetTangentPosition(tangentEndPosition, TangentSelect.End, Space.Self);
 
-      points[index] = point;
-      points[nextIndexPoint] = nextPoint;
+      var nextIndex = GetNextIndexPoint(index);
+      points[index] = section.CurrentPoint;
+      points[nextIndex] = section.NextPoint;
 
-      splitPoint.hasNextPoint = (nextIndexPoint == 0) ? isLoop : true;
-      points.Insert(index + 1, splitPoint);
-      UpdatePoint(index + 1);
+      var splitIndex = index + 1;
+      points.Insert(splitIndex, splitPoint);
+      datas.Insert(splitIndex, new PointData());
+
+      CheckPoint(splitIndex);
+      UpdateDataSize(index);
+      UpdateDataSize(splitIndex);
+
+      UpdateRotation();
     }
 
-    public void AddWorldPoint(BezierPoint newPoint)
+    public void RemovePoint(int index)
     {
-      newPoint.transform = GetTransform();
+      points.RemoveAt(index);
+      datas.RemoveAt(index);
 
-      var lastIndex = Lenght - 1;
-      var lastPoint = points[lastIndex];
-      lastPoint.SetNextPoint(newPoint);
-      lastPoint.hasNextPoint = true;
+      var previousIndex = GetPreviousIndexPoint(index);
+      var nextIndex = GetNextIndexPoint(previousIndex);
 
+      CheckPoint(previousIndex);
+      CheckPoint(nextIndex);
+      UpdateDataSize(previousIndex, true);
+      UpdateDataSize(nextIndex);
 
-      var firstPoint = points[0];
-      newPoint.SetNextPoint(firstPoint);
-      newPoint.hasNextPoint = isLoop;
-
-      points[lastIndex] = lastPoint;
-      points.Add(newPoint);
+      UpdateRotation();
     }
 
     public BezierPoint GetPoint(int index)
@@ -99,6 +99,22 @@ namespace Bezier
       }
 
       return point;
+    }
+
+    public SectionCurve GetSection(int index)
+    {
+      var nextIndex = GetNextIndexPoint(index);
+      var currentPoint = points[index];
+      var nextPoint = points[nextIndex];
+
+      if (index == Lenght - 1)
+      {
+        var targetRotation = datas[nextIndex].GetRotation(0);
+        var targetRoll = targetRotation.eulerAngles.z;
+        return new SectionCurve(currentPoint, nextPoint, datas[index], targetRoll);
+      }
+
+      return new SectionCurve(currentPoint, nextPoint, datas[index]);
     }
 
     public Transform GetTransform()
@@ -116,68 +132,14 @@ namespace Bezier
       return (int)Mathf.Repeat(currentIndex + 1, Lenght);
     }
 
-    public int GetPreviousPoint(int currentIndex)
+    public int GetPreviousIndexPoint(int currentIndex)
     {
       return (int)Mathf.Repeat(currentIndex - 1, Lenght);
     }
 
-    private void UpdateRotationPoints(Vector3 upwards)
+    private void CheckPoint(int index)
     {
-      var forward = points[0].Forward;
-      var currentRotation = Quaternion.LookRotation(forward, upwards);
-
-      for (int index = 0; index < Lenght; index++)
-      {
-        var point = points[index];
-        var pointSize = point.Size;
-        var saveSize = pointSize / 10f;
-        var steps = pointSize / 30f;
-        var distanceSave = steps;
-        var distanceTotal = steps;
-
-        point.rotationInfo.Reset();
-        point.rotationInfo.Save(currentRotation, 0);
-
-        do
-        {
-          var t = point.GetInvertalByDistance(distanceTotal);
-          var tangent = MathBezier.GetTangent(point, t);
-          currentRotation = QuaternionUtility.ProjectOnDirection(currentRotation, tangent);
-
-          if (distanceSave >= 1)
-          {
-            point.rotationInfo.Save(currentRotation, distanceTotal);
-            distanceSave = 0;
-          }
-
-          distanceTotal += steps;
-          distanceSave += steps;
-        } while (distanceTotal < pointSize);
-
-        var nextIndex = GetNextIndexPoint(index);
-        var nextPoint = points[nextIndex];
-        currentRotation = QuaternionUtility.ProjectOnDirection(currentRotation, nextPoint.Forward);
-        point.rotationInfo.Save(currentRotation, pointSize);
-        points[index] = point;
-      }
-    }
-
-    public void RemovePoint(int index)
-    {
-      points.RemoveAt(index);
-
-      var previousIndex = GetPreviousPoint(index);
-      var nextIndex = GetNextIndexPoint(previousIndex);
-      var previousPoint = points[previousIndex];
-      var nextPoint = points[nextIndex];
-
-      UpdatePoint(previousIndex);
-      UpdatePoint(nextIndex);
-    }
-
-    private void UpdatePoint(int index)
-    {
-      var previousIndex = GetPreviousPoint(index);
+      var previousIndex = GetPreviousIndexPoint(index);
       var nextIndex = GetNextIndexPoint(index);
 
       var previousPoint = points[previousIndex];
@@ -189,15 +151,45 @@ namespace Bezier
       currentPoint.CheckTangentVector(previousPoint, TangentSelect.End);
       nextPoint.CheckTangentVector(currentPoint, TangentSelect.End);
 
-      previousPoint.SetNextPoint(currentPoint);
-      currentPoint.SetNextPoint(nextPoint);
-
-      previousPoint.UpdateSize();
-      currentPoint.UpdateSize();
-
       points[previousIndex] = previousPoint;
       points[index] = currentPoint;
       points[nextIndex] = nextPoint;
+    }
+
+    private void UpdateDataSize(int index, bool isForce = false)
+    {
+      var nextIndex = GetNextIndexPoint(index);
+      var point = points[index];
+      var nextPoint = points[nextIndex];
+
+      if (isForce || point.isDirty || nextPoint.isDirty)
+      {
+        var data = datas[index];
+        data.UpdateInterval(point, nextPoint);
+        datas[index] = data;
+
+        point.isDirty = false;
+      }
+
+      points[index] = point;
+    }
+
+    private void UpdateRotation()
+    {
+      var beginRotation = Quaternion.LookRotation(points[0].Forward, transform.up);
+      var rotation = beginRotation;
+
+      for (int index = 0; index < Lenght; index++)
+      {
+        var nextIndex = GetNextIndexPoint(index);
+        var point = points[index];
+        var nextPoint = points[nextIndex];
+        var data = datas[index];
+
+        data.UpdateRotation(point, nextPoint, rotation);
+        datas[index] = data;
+        rotation = data.GetRotation(data.GetCurveSize());
+      }
     }
 
     private void OnValidate()
@@ -211,26 +203,37 @@ namespace Bezier
 
     private void Reset()
     {
-      var tangent1 = new Tangent(Vector3.right * 3, TangentType.Aligned);
-      var tangent2 = new Tangent(-Vector3.right * 3, TangentType.Aligned);
+      var transform = GetTransform();
+      var tangentStart = new Tangent(Vector3.right * 3, TangentType.Aligned);
+      var tangentEnd = new Tangent(-Vector3.right * 3, TangentType.Aligned);
 
-      var point1 = new BezierPoint(Vector3.zero, tangent1, tangent2);
-      point1.hasNextPoint = true;
+      var point1 = new BezierPoint(Vector3.zero, tangentStart, tangentEnd);
+      var point2 = new BezierPoint(transform.forward * 10, tangentStart, tangentEnd);
 
-      var point2 = new BezierPoint(Vector3.forward * 10, tangent1, tangent2);
-      point2.next.position = point1.Position;
-      point2.next.tangentPosition = point1.GetTangentPosition(TangentSelect.End, Space.Self);
-
-      point1.SetNextPoint(point2);
-      point2.SetNextPoint(point1);
-
-      point1.UpdateSize(true);
-      point2.UpdateSize(true);
-
+      point1.transform = point2.transform = transform;
       points = new List<BezierPoint> { point1, point2 };
 
-      var transform = GetTransform();
-      UpdateRotationPoints(transform.up);
+      var beginRotation = Quaternion.LookRotation(point1.Forward, transform.up);
+      var data1 = PointData.Build(point1, point2, beginRotation);
+
+      var rotation = data1.GetRotation(data1.GetCurveSize());
+      var data2 = PointData.Build(point2, point1, rotation);
+
+      datas = new List<PointData> { data1, data2 };
+    }
+
+    public IEnumerator<SectionCurve> GetEnumerator()
+    {
+      var count = (isLoop) ? points.Count : points.Count - 1;
+      for (int index = 0; index < count; index++)
+      {
+        yield return GetSection(index);
+      }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+      return GetEnumerator();
     }
   }
 }

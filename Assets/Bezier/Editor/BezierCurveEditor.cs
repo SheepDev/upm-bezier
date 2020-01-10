@@ -1,6 +1,5 @@
 ﻿using UnityEditor;
 using System.Collections.Generic;
-using System;
 
 namespace Bezier
 {
@@ -59,6 +58,7 @@ namespace Bezier
 
     public override void OnInspectorGUI()
     {
+      base.OnInspectorGUI();
     }
 
     private static void ValidSelectCurve()
@@ -148,6 +148,7 @@ namespace Bezier
       if (curve.Lenght > 2)
       {
         Undo.RecordObject(curve, "Remove Point Curver");
+        pointIndex = -1;
         curve.RemovePoint(index);
       }
     }
