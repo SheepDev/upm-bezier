@@ -16,7 +16,9 @@ namespace Bezier
     internal Tangent tangentEnd;
     [SerializeField]
     internal bool isDirty;
-    public float roll;
+    [SerializeField]
+    internal float inheritRoll;
+    private float roll;
 
     public Vector3 Position => position;
     public Vector3 WorldPosition => LocalToWorld(position);
@@ -87,6 +89,11 @@ namespace Bezier
       }
     }
 
+    public void SetRoll(float value)
+    {
+      roll = value;
+    }
+
     public void CopyMatrix(BezierPoint point)
     {
       transform = point.transform;
@@ -106,6 +113,11 @@ namespace Bezier
       type = (tangent == TangentSelect.Start) ? tangentStart.Type : tangentEnd.Type;
 
       return type;
+    }
+
+    public float GetRoll(bool isInheritRoll = false)
+    {
+      return (isInheritRoll) ? inheritRoll + roll : roll;
     }
 
     internal void CheckTangentVector(BezierPoint referencePoint, TangentSelect space)
@@ -198,7 +210,7 @@ namespace Bezier
     {
       return obj is BezierPoint point &&
              position == point.position &&
-             roll == point.roll &&
+             GetRoll() == point.GetRoll() &&
              tangentStart.Equals(point.tangentStart) &&
              tangentEnd.Equals(point.tangentEnd);
     }
