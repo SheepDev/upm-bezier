@@ -1,7 +1,8 @@
-﻿using UnityEngine;
-using static Bezier.BezierPoint;
+﻿using SheepDev.Utility;
+using UnityEngine;
+using static SheepDev.Bezier.BezierPoint;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public static class MathBezier
   {

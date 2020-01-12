@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   [CustomEditor(typeof(BezierCurve), true)]
   public class BezierCurveEditor : Editor
