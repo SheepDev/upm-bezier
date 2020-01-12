@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using Utility.Editor;
-using static Bezier.BezierPoint;
+using SheepDev.Utility.Editor;
+using static SheepDev.Bezier.BezierPoint;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public class BezierGUI3D : EditorBehaviour<SelectCurve>
   {

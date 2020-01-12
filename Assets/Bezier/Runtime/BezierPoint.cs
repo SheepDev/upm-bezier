@@ -1,7 +1,7 @@
 using UnityEngine;
 using System;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   [Serializable]
   public struct BezierPoint

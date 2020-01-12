@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using static Bezier.BezierPoint;
+using static SheepDev.Bezier.BezierPoint;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public class BezierGUI2D : EditorBehaviour<SelectCurve>
   {

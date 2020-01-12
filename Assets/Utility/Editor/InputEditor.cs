@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Input
+namespace SheepDev.Input
 {
   public static class InputEditor
   {

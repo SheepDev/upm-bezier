@@ -1,7 +1,7 @@
 using UnityEngine;
-using static Bezier.BezierPoint;
+using static SheepDev.Bezier.BezierPoint;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public struct SectionCurve
   {
