@@ -1,18 +1,15 @@
 {
-    "name": "Bezier.Editor",
+    "name": "SheepDev.Bezier.Runtime",
     "references": [
-        "GUID:a859a37637ca3ac42885965e5cf80033",
-        "GUID:cc70d4289798de74d8031ff1a8d7d16b",
         "GUID:79755a6e81f12cc4c82a8a89b0b02ecb"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }
