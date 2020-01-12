@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public struct WayPoint
   {
