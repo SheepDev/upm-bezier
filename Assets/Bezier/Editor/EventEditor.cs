@@ -1,9 +1,9 @@
 using UnityEditor;
 using UnityEngine;
-using static Bezier.BezierPoint;
-using static Input.InputEditor;
+using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Input.InputEditor;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   public class EventEditor : EditorBehaviour<SelectCurve>
   {

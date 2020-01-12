@@ -1,8 +1,7 @@
-using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace Utility.Editor
+namespace SheepDev.Utility.Editor
 {
   public static class HandleExtension
   {

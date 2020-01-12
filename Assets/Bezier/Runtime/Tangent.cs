@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Bezier
+namespace SheepDev.Bezier
 {
   [System.Serializable]
   public struct Tangent
