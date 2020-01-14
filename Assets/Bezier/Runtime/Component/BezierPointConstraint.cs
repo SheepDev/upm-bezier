@@ -52,6 +52,7 @@ namespace SheepDev.Bezier
       }
     }
 
+    [ContextMenu("Constraint To Point")]
     public void ConstraintToPoint()
     {
       var transform = GetTransform();
@@ -61,6 +62,7 @@ namespace SheepDev.Bezier
       lastPosition = transform.position = targetPosition;
     }
 
+    [ContextMenu("Point To Constraint")]
     public void PointToConstraint()
     {
       var transform = GetTransform();
