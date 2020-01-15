@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 using static SheepDev.Bezier.BezierPoint;
 
 namespace SheepDev.Bezier
@@ -13,6 +14,8 @@ namespace SheepDev.Bezier
     private List<BezierPoint> points;
     [SerializeField]
     private List<PointData> datas;
+    [SerializeField]
+    public UnityEvent onUpdated;
 
     // Cache
     private Transform cacheTransform;
@@ -41,6 +44,7 @@ namespace SheepDev.Bezier
       UpdateDataSize(nextIndex);
 
       UpdateRotation();
+      onUpdated.Invoke();
     }
 
     public void SetPointRoll(int index, float roll)
@@ -50,11 +54,13 @@ namespace SheepDev.Bezier
       points[index] = point;
 
       UpdateRoll(index);
+      onUpdated.Invoke();
     }
 
     public void SetLoop(bool isLoop)
     {
       this.isLoop = isLoop;
+      onUpdated.Invoke();
     }
 
     public void Split(int index, float t)
@@ -79,6 +85,7 @@ namespace SheepDev.Bezier
       UpdateDataSize(splitIndex);
 
       UpdateRotation();
+      onUpdated.Invoke();
     }
 
     public void RemovePoint(int index)
@@ -95,6 +102,7 @@ namespace SheepDev.Bezier
       UpdateDataSize(nextIndex);
 
       UpdateRotation();
+      onUpdated.Invoke();
     }
 
     public BezierPoint GetPoint(int index)
