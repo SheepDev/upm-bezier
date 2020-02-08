@@ -134,6 +134,18 @@ namespace SheepDev.Bezier
       return new SectionCurve(currentPoint, nextPoint, datas[index]);
     }
 
+    public float GetSize()
+    {
+      var size = 0f;
+
+      foreach (var section in this)
+      {
+        size += section.Size;
+      }
+
+      return size;
+    }
+
     public Transform GetTransform()
     {
       if (cacheTransform == null)

@@ -18,6 +18,7 @@ namespace SheepDev.Bezier
     internal bool isDirty;
     [SerializeField]
     internal float inheritRoll;
+    [SerializeField]
     private float roll;
 
     public Vector3 Position => position;

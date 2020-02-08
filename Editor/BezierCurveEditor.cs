@@ -1,153 +1,152 @@
 ﻿using UnityEditor;
 using System.Collections.Generic;
 using UnityEngine;
+using static SheepDev.Bezier.BezierPoint;
 
 namespace SheepDev.Bezier
 {
   [CustomEditor(typeof(BezierCurve), true)]
   public class BezierCurveEditor : Editor
   {
+    public static SelectCurve ActiveCurve;
     private static EditorBehaviour<SelectCurve>[] behaviours;
-    public static Dictionary<int, SelectCurve> SelectCurvers { get; private set; }
-
-    public static float Distance { get; internal set; }
-    public static bool IsShowRotationHandle { get; internal set; }
-    public static bool IsNormalizeRotationHandle;
-    public static bool IsInheritRoll;
-    public static bool IsUseUpwards;
-    public static Vector3 Upwards = Vector3.up;
 
     static BezierCurveEditor()
     {
-      SceneView.duringSceneGui += UpdateScene;
-      Distance = 2;
-      SelectCurvers = new Dictionary<int, SelectCurve>();
-      behaviours = new EditorBehaviour<SelectCurve>[3];
+      behaviours = new EditorBehaviour<SelectCurve>[2];
       behaviours[0] = new EventEditor();
       behaviours[1] = new BezierGUI3D();
-      behaviours[2] = new BezierGUI2D();
     }
 
-    private static void UpdateScene(SceneView view)
+    private void OnEnable()
     {
-      var curveCount = SelectCurvers.Count;
-      if (curveCount == 0) return;
+      var activeCurve = new SelectCurve(target as BezierCurve);
+      var isEqual = ActiveCurve != null && ActiveCurve.Equals(activeCurve);
 
-      ValidSelectCurve();
+      if (!isEqual)
+      {
+        activeCurve.repaint += Repaint;
+        ActiveCurve = activeCurve;
+      }
+    }
 
+    private void OnDisable()
+    {
+      if (ActiveCurve.IsEdit && Selection.activeGameObject == null)
+      {
+        Selection.activeGameObject = ActiveCurve.curve.gameObject;
+      }
+      else
+      {
+        ActiveCurve.Edit(false);
+      }
+    }
+
+    private void OnSceneGUI()
+    {
       foreach (var behaviour in behaviours)
       {
         behaviour.Reset();
-
-        foreach (var item in SelectCurvers)
-        {
-          try
-          {
-            behaviour.BeforeSceneGUI(item.Value);
-          }
-          catch (System.Exception)
-          {
-            SelectCurvers.Clear();
-          }
-        }
-
-        behaviour.SceneGUI(view);
+        behaviour.BeforeSceneGUI(ActiveCurve);
+        behaviour.SceneGUI(SceneView.lastActiveSceneView);
       }
-    }
-
-    public static void HiddenTool()
-    {
-      foreach (var item in SelectCurvers)
-      {
-        if (item.Value.IsEdit)
-        {
-          Tools.hidden = true;
-          return;
-        }
-      }
-
-      Tools.hidden = false;
     }
 
     public override void OnInspectorGUI()
     {
+      EditButtonGUI();
+
+      var isLoopProperty = serializedObject.FindProperty("isLoop");
+      EditorGUILayout.PropertyField(isLoopProperty);
+
+      if (ActiveCurve.IsEdit && ActiveCurve.IsSelectPoint)
+      {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Active Point: " + ActiveCurve.PointIndex);
+        var point = ActiveCurve.GetSelectPoint();
+        var newTangentStartType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.Start), "Tangent Start Type");
+        var newTangentEndType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.End), "Tangent End Type");
+        var roll = EditorGUILayout.FloatField("Roll", point.GetRoll());
+
+        point.SetTangentType(newTangentStartType, TangentSelect.Start);
+        point.SetTangentType(newTangentEndType, TangentSelect.End);
+        point.SetRoll(roll);
+
+        if (ActiveCurve.SetSelectPoint(point))
+        {
+          SceneView.RepaintAll();
+        }
+      }
+
+      serializedObject.ApplyModifiedProperties();
+
+      foreach (var behaviour in behaviours)
+      {
+        behaviour.InspectorGUI();
+      }
+
       base.OnInspectorGUI();
     }
 
-    private static void ValidSelectCurve()
+    private void EditButtonGUI()
     {
-      var keys = new List<int>(SelectCurvers.Keys);
-      foreach (var key in keys)
-      {
-        var curve = SelectCurvers[key].curve;
-        if (curve == null || curve.gameObject is null)
-        {
-          SelectCurvers.Remove(key);
-        }
-      }
+      var text = (ActiveCurve.IsEdit) ? "Finish" : "Start Edit";
+      if (GUILayout.Button(text)) ActiveCurve.EditToggle();
+    }
+
+    private TangentType EnumTangentTypeGUI(TangentType selected, string name)
+    {
+      return (TangentType)EditorGUILayout.EnumPopup(name, selected);
     }
 
     [DrawGizmo(GizmoType.NotInSelectionHierarchy)]
     static void DrawGizmoBezierCurveNonSelected(BezierCurve script, GizmoType gizmoType)
     {
       BezierGUI3D.DrawCurve(script);
-
-      var hashcode = script.GetHashCode();
-      if (SelectCurvers.TryGetValue(hashcode, out var select))
-      {
-        if (!select.IsEdit)
-        {
-          SelectCurvers.Remove(hashcode);
-        }
-        else
-        {
-          select.isSelectInHierarchy = false;
-          SelectCurvers[hashcode] = select;
-        }
-      }
     }
 
-    [DrawGizmo(GizmoType.InSelectionHierarchy)]
-    static void DrawGizmoBezierCurveSelected(BezierCurve script, GizmoType gizmoType)
+    public static void RepaintIfChange(System.Object obj, System.Object other)
     {
-      var hashcode = script.GetHashCode();
-      if (!SelectCurvers.ContainsKey(hashcode))
+      if (!obj.Equals(other))
       {
-        var selectCurve = new SelectCurve(script);
-        SelectCurvers.Add(hashcode, selectCurve);
-      }
-      else
-      {
-        var select = SelectCurvers[hashcode];
-        select.isSelectInHierarchy = true;
-        SelectCurvers[hashcode] = select;
+        SceneView.RepaintAll();
       }
     }
-  }
-
-  public enum SelectBezierPart
-  {
-    Point, TangentStart, TangentEnd
   }
 
   public class SelectCurve
   {
     public BezierCurve curve;
     public SelectBezierPart bezierPart;
-    public bool isSelectInHierarchy;
-    private int pointIndex;
+
     private bool isEdit;
+    private int pointIndex;
+
+    public delegate void Callback();
+    public Callback repaint;
 
     public bool IsEdit => isEdit;
-    public bool IsSelectPoint => PointIndex >= 0;
-
     public int PointIndex => pointIndex;
+    public bool IsSelectPoint => PointIndex >= 0;
 
     public SelectCurve(BezierCurve curve)
     {
       this.curve = curve;
-      this.isSelectInHierarchy = true;
-      this.SetIsEdit(false);
+      pointIndex = -1;
+    }
+
+    public void EditToggle()
+    {
+      Edit(!IsEdit);
+    }
+
+    public void Edit(bool isEdit)
+    {
+      this.isEdit = isEdit;
+      Tools.hidden = isEdit;
+
+      if (!isEdit) SetPointIndex(-1);
+      SceneView.RepaintAll();
     }
 
     public void AddPoint(int index, float t)
@@ -168,64 +167,25 @@ namespace SheepDev.Bezier
 
     public void SetPointIndex(int value)
     {
-      pointIndex = value;
+      pointIndex = Mathf.Clamp(value, -1, curve.Lenght);
+      repaint.Invoke();
     }
 
-    public void SetIsEdit(bool value)
+    public bool SetSelectPoint(BezierPoint point)
     {
-      isEdit = value;
-      BezierCurveEditor.HiddenTool();
-
-      if (!value) SetPointIndex(-1);
-    }
-
-    public void SetLoop(bool isLoop)
-    {
-      if (curve.IsLoop != isLoop)
-      {
-        Undo.RecordObject(curve, "Set Curver Loop in " + curve.GetHashCode());
-        curve.SetLoop(isLoop);
-      }
-    }
-
-    public void SetSelectPoint(BezierPoint point)
-    {
-      if (PointIndex < 0) return;
       var oldPoint = curve.GetPoint(PointIndex);
 
       if (!oldPoint.Equals(point))
       {
         Undo.RecordObject(curve, "Set Point " + PointIndex + " in " + curve.GetHashCode());
         curve.SetPoint(PointIndex, point);
+        return true;
       }
+
+      return false;
     }
 
-    public void SetSelectPointRoll(float roll)
-    {
-      if (PointIndex < 0) return;
-      var point = curve.GetPoint(PointIndex);
-
-      if (point.GetRoll() != roll)
-      {
-        Undo.RecordObject(curve, "Set Roll Point " + PointIndex + " in " + curve.GetHashCode());
-        curve.SetPointRoll(pointIndex, roll);
-      }
-    }
-
-    public BezierPoint GetSelectPoint()
-    {
-      return (IsSelectPoint) ? curve.GetPoint(PointIndex) : default;
-    }
-
-    public void LoopToggle()
-    {
-      SetLoop(!curve.IsLoop);
-    }
-
-    public void EditToggle()
-    {
-      SetIsEdit(!IsEdit);
-    }
+    public BezierPoint GetSelectPoint() => (IsSelectPoint) ? curve.GetPoint(PointIndex) : default;
 
     public override bool Equals(object obj)
     {
@@ -237,5 +197,10 @@ namespace SheepDev.Bezier
     {
       return 211918132 + EqualityComparer<BezierCurve>.Default.GetHashCode(curve);
     }
+  }
+
+  public enum SelectBezierPart
+  {
+    Point, TangentStart, TangentEnd
   }
 }
