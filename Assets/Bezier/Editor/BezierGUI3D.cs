@@ -12,7 +12,18 @@ namespace SheepDev.Bezier
     public static bool IsSplitSpline;
     public static bool IsRemovePoint;
 
+    public bool isShowRotation;
+    public int curveDivision;
+    public Vector3 upward;
+    public RotationSetting rotationSetting;
+
     private List<DrawStack> draws = new List<DrawStack>();
+
+    public BezierGUI3D()
+    {
+      draws = new List<DrawStack>();
+      upward = Vector3.up;
+    }
 
     public override void Reset()
     {
@@ -22,27 +33,34 @@ namespace SheepDev.Bezier
     public override void BeforeSceneGUI(SelectCurve select)
     {
       DrawCurve(select.curve);
-      DrawHandleBezier(select);
 
-      if (BezierCurveEditor.IsShowRotationHandle)
+      if (select.IsEdit)
+      {
+        DrawHandleBezier(select);
+      }
+
+      if (isShowRotation)
       {
         var curve = select.curve;
         var distance = 0f;
+        var stepDistance = curve.GetSize() / curveDivision;
         for (var index = 0; index < curve.Lenght; index++)
         {
           var section = curve.GetSection(index);
-          for (; distance < section.Size; distance += BezierCurveEditor.Distance)
+          for (; distance < section.Size; distance += stepDistance)
           {
             var position = Vector3.zero;
             var rotation = Quaternion.identity;
 
-            if (BezierCurveEditor.IsUseUpwards)
+            if (rotationSetting == RotationSetting.Upwards)
             {
-              section.GetPositionAndRotationByDistance(distance, out position, out rotation, BezierCurveEditor.Upwards);
+              section.GetPositionAndRotationByDistance(distance, out position, out rotation, upward);
             }
             else
             {
-              section.GetPositionAndRotationByDistance(distance, out position, out rotation, Space.World, BezierCurveEditor.IsNormalizeRotationHandle, BezierCurveEditor.IsInheritRoll);
+              var isNormalize = rotationSetting == RotationSetting.Normalize;
+              var isInherit = rotationSetting == RotationSetting.Inheritroll;
+              section.GetPositionAndRotationByDistance(distance, out position, out rotation, Space.World, isNormalize, isInherit);
             }
 
             HandleExtension.RotationAxisView(position, rotation);
@@ -50,6 +68,33 @@ namespace SheepDev.Bezier
 
           distance -= section.Size;
         }
+      }
+    }
+
+    public override void InspectorGUI()
+    {
+      EditorGUILayout.Space();
+      EditorGUILayout.LabelField("Rotation Handler Settings");
+
+      var isShowRotation = EditorGUILayout.Toggle("Show Rotation", this.isShowRotation);
+      BezierCurveEditor.RepaintIfChange(isShowRotation, this.isShowRotation);
+      this.isShowRotation = isShowRotation;
+
+      if (!isShowRotation) return;
+
+      var curveDivision = EditorGUILayout.IntSlider("Step Distance", this.curveDivision, 10, 50);
+      BezierCurveEditor.RepaintIfChange(curveDivision, this.curveDivision);
+      this.curveDivision = curveDivision;
+
+      var rotationSetting = (RotationSetting)EditorGUILayout.EnumFlagsField("Rotation config", this.rotationSetting);
+      BezierCurveEditor.RepaintIfChange(rotationSetting, this.rotationSetting);
+      this.rotationSetting = rotationSetting;
+
+      if (rotationSetting == RotationSetting.Upwards)
+      {
+        var upward = EditorGUILayout.Vector3Field("Upward", this.upward).normalized;
+        BezierCurveEditor.RepaintIfChange(upward, this.upward);
+        this.upward = upward;
       }
     }
 
@@ -76,9 +121,9 @@ namespace SheepDev.Bezier
         var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
         var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
 
-        var depthPoint = HandleUtility.WorldToGUIPointWithDepth(positionPoint).z;
-        var depthTangentStart = HandleUtility.WorldToGUIPointWithDepth(positionTangentStart).z;
-        var depthTangentEnd = HandleUtility.WorldToGUIPointWithDepth(positionTangentEnd).z;
+        var depthPoint = GetDepth(positionPoint);
+        var depthTangentStart = GetDepth(positionTangentStart);
+        var depthTangentEnd = GetDepth(positionTangentEnd);
 
         if (select.IsEdit)
         {
@@ -131,11 +176,19 @@ namespace SheepDev.Bezier
       }
     }
 
-    public static void DrawCurve(BezierCurve curve)
+    public static void DrawCurve(BezierCurve curve, float width = 2)
     {
       foreach (var item in curve)
       {
-        DrawBezier(item, Color.white);
+        DrawBezier(item, Color.white, width);
+      }
+    }
+
+    public static void DrawCurve(BezierCurve curve, Color color, float width = 2)
+    {
+      foreach (var item in curve)
+      {
+        DrawBezier(item, color, width);
       }
     }
 
@@ -181,6 +234,12 @@ namespace SheepDev.Bezier
         default:
           return Color.white;
       }
+    }
+
+    [Flags]
+    public enum RotationSetting
+    {
+      None = 0, Upwards = 1 << 0, Normalize = 1 << 1, Inheritroll = 1 << 2
     }
 
     struct DrawDot : DrawStack
@@ -315,6 +374,57 @@ namespace SheepDev.Bezier
       }
     }
 
+    struct DrawHandleSelectBezierPart : DrawStack
+    {
+      private readonly SelectCurve select;
+      private readonly Vector3 position;
+      private readonly float depth;
+
+      public float Depth => depth;
+      public float Layer => 2;
+
+      public DrawHandleSelectBezierPart(SelectCurve select, Vector3 position, float depth)
+      {
+        this.select = select;
+        this.position = position;
+        this.depth = depth;
+      }
+
+      public int CompareTo(DrawStack other)
+      {
+        var layerCompare = Layer.CompareTo(other.Layer);
+        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
+      }
+
+      public void Draw()
+      {
+        var point = select.GetSelectPoint();
+        var isGlobal = Tools.pivotRotation == PivotRotation.Global;
+        var rotation = isGlobal ? Quaternion.identity : select.curve.GetTransform().rotation;
+
+        EditorGUI.BeginChangeCheck();
+        var newPosition = Handles.PositionHandle(position, rotation);
+
+        if (EditorGUI.EndChangeCheck())
+        {
+          switch (select.bezierPart)
+          {
+            case SelectBezierPart.Point:
+              point.SetPosition(newPosition);
+              break;
+            case SelectBezierPart.TangentStart:
+              point.SetTangentPosition(newPosition, TangentSelect.Start);
+              break;
+            case SelectBezierPart.TangentEnd:
+              point.SetTangentPosition(newPosition, TangentSelect.End);
+              break;
+          }
+
+          select.SetSelectPoint(point);
+        }
+      }
+    }
+
     struct DrawAddButtonBezierPoint : DrawStack
     {
       private readonly SelectCurve select;
@@ -384,57 +494,6 @@ namespace SheepDev.Bezier
         {
           select.RemovePoint(index);
           BezierGUI3D.IsRemovePoint = false;
-        }
-      }
-    }
-
-    struct DrawHandleSelectBezierPart : DrawStack
-    {
-      private readonly SelectCurve select;
-      private readonly Vector3 position;
-      private readonly float depth;
-
-      public float Depth => depth;
-      public float Layer => 2;
-
-      public DrawHandleSelectBezierPart(SelectCurve select, Vector3 position, float depth)
-      {
-        this.select = select;
-        this.position = position;
-        this.depth = depth;
-      }
-
-      public int CompareTo(DrawStack other)
-      {
-        var layerCompare = Layer.CompareTo(other.Layer);
-        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
-      }
-
-      public void Draw()
-      {
-        var point = select.GetSelectPoint();
-        var isGlobal = Tools.pivotRotation == PivotRotation.Global;
-        var rotation = isGlobal ? Quaternion.identity : select.curve.GetTransform().rotation;
-
-        EditorGUI.BeginChangeCheck();
-        var newPosition = Handles.PositionHandle(position, rotation);
-
-        if (EditorGUI.EndChangeCheck())
-        {
-          switch (select.bezierPart)
-          {
-            case SelectBezierPart.Point:
-              point.SetPosition(newPosition);
-              break;
-            case SelectBezierPart.TangentStart:
-              point.SetTangentPosition(newPosition, TangentSelect.Start);
-              break;
-            case SelectBezierPart.TangentEnd:
-              point.SetTangentPosition(newPosition, TangentSelect.End);
-              break;
-          }
-
-          select.SetSelectPoint(point);
         }
       }
     }
