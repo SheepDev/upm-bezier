@@ -44,9 +44,9 @@ namespace SheepDev.Bezier
         var curve = select.curve;
         var distance = 0f;
         var stepDistance = curve.GetSize() / curveDivision;
-        for (var index = 0; index < curve.Lenght; index++)
+
+        foreach (var section in curve)
         {
-          var section = curve.GetSection(index);
           for (; distance < section.Size; distance += stepDistance)
           {
             var position = Vector3.zero;
