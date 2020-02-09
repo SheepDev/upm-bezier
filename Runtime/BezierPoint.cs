@@ -9,7 +9,7 @@ namespace SheepDev.Bezier
     [SerializeField]
     internal Vector3 position;
     [SerializeField]
-    internal Transform transform;
+    internal Matrix4x4 matrix;
     [SerializeField]
     internal Tangent tangentStart;
     [SerializeField]
@@ -97,7 +97,7 @@ namespace SheepDev.Bezier
 
     public void CopyMatrix(BezierPoint point)
     {
-      transform = point.transform;
+      matrix = point.matrix;
     }
 
     public Vector3 GetTangentPosition(TangentSelect tangent, Space space = Space.World)
@@ -194,24 +194,24 @@ namespace SheepDev.Bezier
 
     private Vector3 LocalToWorld(Vector3 position)
     {
-      return transform.TransformPoint(position);
+      return matrix.MultiplyPoint3x4(position);
     }
 
     private Vector3 WorldToLocal(Vector3 position)
     {
-      return transform.InverseTransformPoint(position);
+      return matrix.inverse.MultiplyPoint3x4(position);
     }
 
     private Quaternion LocalToWorld(Quaternion rotation)
     {
-      return transform.rotation * rotation;
+      return matrix.rotation * rotation;
     }
 
     public override bool Equals(object obj)
     {
       return obj is BezierPoint point &&
              position == point.position &&
-             GetRoll() == point.GetRoll() &&
+             roll == point.roll &&
              tangentStart.Equals(point.tangentStart) &&
              tangentEnd.Equals(point.tangentEnd);
     }
