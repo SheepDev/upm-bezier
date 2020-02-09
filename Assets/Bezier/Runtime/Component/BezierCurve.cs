@@ -29,7 +29,7 @@ namespace SheepDev.Bezier
       if (oldPoint.Equals(point)) return;
 
       var transform = GetTransform();
-      point.transform = transform;
+      point.matrix = transform.localToWorldMatrix;
       points[index] = point;
 
       var previousIndex = GetPreviousIndexPoint(index);
@@ -108,21 +108,15 @@ namespace SheepDev.Bezier
     public BezierPoint GetPoint(int index)
     {
       var point = points[index];
-
-      if (point.transform == null)
-      {
-        point.transform = GetTransform();
-        points[index] = point;
-      }
-
+      point.matrix = GetTransform().localToWorldMatrix;
       return point;
     }
 
     public SectionCurve GetSection(int index)
     {
       var nextIndex = GetNextIndexPoint(index);
-      var currentPoint = points[index];
-      var nextPoint = points[nextIndex];
+      var currentPoint = GetPoint(index);
+      var nextPoint = GetPoint(nextIndex);
 
       if (index == Lenght - 1)
       {
@@ -259,7 +253,7 @@ namespace SheepDev.Bezier
       var point1 = new BezierPoint(Vector3.zero, tangentStart, tangentEnd);
       var point2 = new BezierPoint(transform.forward * 10, tangentStart, tangentEnd);
 
-      point1.transform = point2.transform = transform;
+      point1.matrix = point2.matrix = transform.localToWorldMatrix;
       points = new List<BezierPoint> { point1, point2 };
 
       var beginRotation = Quaternion.LookRotation(point1.Forward, transform.up);
