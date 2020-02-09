@@ -202,7 +202,7 @@ namespace SheepDev.Bezier
       return matrix.inverse.MultiplyPoint3x4(position);
     }
 
-    private Quaternion LocalToWorld(Quaternion rotation)
+    internal Quaternion LocalToWorld(Quaternion rotation)
     {
       return matrix.rotation * rotation;
     }

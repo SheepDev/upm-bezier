@@ -77,7 +77,7 @@ namespace SheepDev.Bezier
         rotation = Quaternion.Euler(euler.x, euler.y, euler.z + plusRoll);
       }
 
-      return rotation;
+      return space == Space.World ? currentPoint.LocalToWorld(rotation) : rotation;
     }
 
     public Quaternion GetRotationByDistance(float distance, Vector3 upwards, Space space = Space.World)
