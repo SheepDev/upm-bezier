@@ -5,32 +5,31 @@ namespace SheepDev.Bezier
   [System.Serializable]
   public struct Tangent
   {
-    [SerializeField]
-    private Vector3 position;
-    [SerializeField]
-    private TangentType type;
+    public Vector3 position;
+    public TangentType type;
 
-    public Vector3 localPosition { get => position; internal set => position = value; }
-    public TangentType Type { get => type; internal set => type = value; }
-
-    public Tangent(Vector3 localPosition, TangentType type) : this()
+    public Tangent(Vector3 position, TangentType type) : this()
     {
-      position = localPosition;
-      Type = type;
+      this.position = position;
+      this.type = type;
+    }
+
+    public Tangent(Vector3 position) : this(position, TangentType.Free)
+    {
     }
 
     public override bool Equals(object obj)
     {
       return obj is Tangent tangent &&
-             localPosition == tangent.localPosition &&
-             Type == tangent.Type;
+             position == tangent.position &&
+             type == tangent.type;
     }
 
     public override int GetHashCode()
     {
       var hashCode = -1726561561;
-      hashCode = hashCode * -1521134295 + localPosition.GetHashCode();
-      hashCode = hashCode * -1521134295 + Type.GetHashCode();
+      hashCode = hashCode * -1521134295 + position.GetHashCode();
+      hashCode = hashCode * -1521134295 + type.GetHashCode();
       return hashCode;
     }
   }
