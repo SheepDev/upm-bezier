@@ -1,6 +1,6 @@
 using UnityEditor;
 using UnityEngine;
-using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Bezier.Point;
 using static SheepDev.Input.InputEditor;
 
 namespace SheepDev.Bezier
@@ -57,7 +57,7 @@ namespace SheepDev.Bezier
     {
       var bounds = new Bounds();
       var selectPoint = selectCurve.GetSelectPoint();
-      bounds.center = selectPoint.WorldPosition;
+      bounds.center = selectPoint.position;
       bounds.Encapsulate(selectPoint.GetTangentPosition(TangentSelect.Start));
       bounds.Encapsulate(selectPoint.GetTangentPosition(TangentSelect.End));
 
@@ -69,12 +69,12 @@ namespace SheepDev.Bezier
       var bounds = new Bounds();
       var curve = selectCurve.curve;
 
-      for (var index = 0; index < curve.Lenght; index++)
+      for (var index = 0; index < curve.PointLenght; index++)
       {
         var point = curve.GetPoint(index);
-        if (index == 0) bounds.center = point.WorldPosition;
+        if (index == 0) bounds.center = point.position;
 
-        bounds.Encapsulate(point.WorldPosition);
+        bounds.Encapsulate(point.position);
         bounds.Encapsulate(point.GetTangentPosition(TangentSelect.Start));
         bounds.Encapsulate(point.GetTangentPosition(TangentSelect.End));
       }

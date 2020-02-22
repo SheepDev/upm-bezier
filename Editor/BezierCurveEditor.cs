@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using System.Collections.Generic;
 using UnityEngine;
-using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Bezier.Point;
 
 namespace SheepDev.Bezier
 {
@@ -157,21 +157,21 @@ namespace SheepDev.Bezier
 
     public void RemovePoint(int index)
     {
-      if (curve.Lenght > 2)
+      if (curve.PointLenght > 2)
       {
         Undo.RecordObject(curve, "Remove Point Curver");
         pointIndex = -1;
-        curve.RemovePoint(index);
+        curve.Remove(index);
       }
     }
 
     public void SetPointIndex(int value)
     {
-      pointIndex = Mathf.Clamp(value, -1, curve.Lenght);
+      pointIndex = Mathf.Clamp(value, -1, curve.PointLenght);
       repaint.Invoke();
     }
 
-    public bool SetSelectPoint(BezierPoint point)
+    public bool SetSelectPoint(Point point)
     {
       var oldPoint = curve.GetPoint(PointIndex);
 
@@ -185,7 +185,7 @@ namespace SheepDev.Bezier
       return false;
     }
 
-    public BezierPoint GetSelectPoint() => (IsSelectPoint) ? curve.GetPoint(PointIndex) : default;
+    public Point GetSelectPoint() => (IsSelectPoint) ? curve.GetPoint(PointIndex) : default;
 
     public override bool Equals(object obj)
     {

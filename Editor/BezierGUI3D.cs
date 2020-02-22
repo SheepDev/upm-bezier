@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using SheepDev.Utility.Editor;
-using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Bezier.Point;
 
 namespace SheepDev.Bezier
 {
@@ -43,7 +43,7 @@ namespace SheepDev.Bezier
       {
         var curve = select.curve;
         var distance = 0f;
-        var stepDistance = curve.GetSize() / curveDivision;
+        var stepDistance = curve.Size / curveDivision;
 
         foreach (var section in curve)
         {
@@ -51,18 +51,7 @@ namespace SheepDev.Bezier
           {
             var position = Vector3.zero;
             var rotation = Quaternion.identity;
-
-            if (rotationSetting == RotationSetting.Upwards)
-            {
-              section.GetPositionAndRotationByDistance(distance, out position, out rotation, upward);
-            }
-            else
-            {
-              var isNormalize = rotationSetting == RotationSetting.Normalize;
-              var isInherit = rotationSetting == RotationSetting.Inheritroll;
-              section.GetPositionAndRotationByDistance(distance, out position, out rotation, Space.World, isNormalize, isInherit);
-            }
-
+            section.GetPositionAndRotationByDistance(distance, out position, out rotation);
             HandleExtension.RotationAxisView(position, rotation);
           }
 
@@ -114,10 +103,10 @@ namespace SheepDev.Bezier
       var colorTangentEnd = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
       var colorTangentStart = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
 
-      for (var index = 0; index < curve.Lenght; index++)
+      for (var index = 0; index < curve.PointLenght; index++)
       {
         var point = curve.GetPoint(index);
-        var positionPoint = point.WorldPosition;
+        var positionPoint = point.position;
         var positionTangentStart = point.GetTangentPosition(TangentSelect.Start);
         var positionTangentEnd = point.GetTangentPosition(TangentSelect.End);
 
@@ -153,12 +142,12 @@ namespace SheepDev.Bezier
       if (select.IsSelectPoint && !(IsSplitSpline ^ IsRemovePoint))
       {
         var index = select.PointIndex;
-        var point = select.curve.GetPoint(index);
+        var point = select.GetSelectPoint();
 
         Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
-        Handles.DrawDottedLine(point.WorldPosition, point.GetTangentPosition(TangentSelect.Start), 5);
+        Handles.DrawDottedLine(point.position, point.GetTangentPosition(TangentSelect.Start), 5);
         Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
-        Handles.DrawDottedLine(point.WorldPosition, point.GetTangentPosition(TangentSelect.End), 5);
+        Handles.DrawDottedLine(point.position, point.GetTangentPosition(TangentSelect.End), 5);
 
         var handlePosition = GetPointPartPosition(point, select.bezierPart);
         var handleDepth = GetDepth(handlePosition);
@@ -194,10 +183,10 @@ namespace SheepDev.Bezier
 
     private static void DrawBezier(SectionCurve section, Color color, float width = 2)
     {
-      var positionStart = section.GetPosition(0);
-      var positionTangentStart = section.CurrentPoint.GetTangentPosition(TangentSelect.Start);
+      var positionStart = section.Point.position;
+      var positionTangentStart = section.Point.GetTangentPosition(TangentSelect.Start);
       var positionTangentEnd = section.NextPoint.GetTangentPosition(TangentSelect.End);
-      var positionEnd = section.GetPosition(1);
+      var positionEnd = section.NextPoint.position;
 
       Handles.DrawBezier(positionStart, positionEnd, positionTangentStart, positionTangentEnd, color, null, width);
     }
@@ -207,12 +196,12 @@ namespace SheepDev.Bezier
       return HandleUtility.WorldToGUIPointWithDepth(position).z;
     }
 
-    private static Vector3 GetPointPartPosition(BezierPoint point, SelectBezierPart part)
+    private static Vector3 GetPointPartPosition(Point point, SelectBezierPart part)
     {
       switch (part)
       {
         case SelectBezierPart.Point:
-          return point.WorldPosition;
+          return point.position;
         case SelectBezierPart.TangentStart:
           return point.GetTangentPosition(TangentSelect.Start);
         case SelectBezierPart.TangentEnd:
@@ -410,7 +399,7 @@ namespace SheepDev.Bezier
           switch (select.bezierPart)
           {
             case SelectBezierPart.Point:
-              point.SetPosition(newPosition);
+              point.position = newPosition;
               break;
             case SelectBezierPart.TangentStart:
               point.SetTangentPosition(newPosition, TangentSelect.Start);
@@ -477,7 +466,7 @@ namespace SheepDev.Bezier
         this.index = index;
 
         var point = select.curve.GetPoint(index);
-        this.position = point.WorldPosition;
+        this.position = point.position;
         depth = GetDepth(position);
       }
 
