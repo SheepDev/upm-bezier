@@ -1,140 +1,117 @@
+using System;
 using UnityEngine;
-using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Bezier.MathBezier;
 
 namespace SheepDev.Bezier
 {
   public struct SectionCurve
   {
-    internal BezierPoint currentPoint;
-    internal BezierPoint nextPoint;
-    internal PointData data;
+    private readonly Info data;
+    private readonly Quaternion rotation;
 
-    public BezierPoint CurrentPoint => currentPoint;
-    public BezierPoint NextPoint => nextPoint;
-    public float Size => data.GetCurveSize();
-    internal float? TargetRoll { get; }
+    public Point Point { get; }
+    public Point NextPoint { get; }
 
-    public SectionCurve(BezierPoint currentPoint, BezierPoint nextPoint, PointData data) : this()
+    public float Size => data.Size;
+    public float TotalSize => data.TotalSize;
+    public Vector3 Forward => MathBezier.GetTangent(Point, NextPoint, 0);
+
+    public SectionCurve(Point point, Point nextPoint, Info data) : this()
     {
-      this.currentPoint = currentPoint;
-      this.nextPoint = nextPoint;
       this.data = data;
+      Point = point;
+      NextPoint = nextPoint;
     }
 
-    public SectionCurve(BezierPoint currentPoint, BezierPoint nextPoint, PointData data, float targetRoll) : this(currentPoint, nextPoint, data)
+    public bool IsInsideBounds(float distance, DistanceSpace space = DistanceSpace.Relative)
     {
-      TargetRoll = targetRoll;
-    }
-
-    public Vector3 GetForward()
-    {
-      return MathBezier.GetTangent(currentPoint, nextPoint, 0);
-    }
-
-    public Vector3 GetPosition(float t, Space space = Space.World)
-    {
-      return MathBezier.GetIntervalPosition(currentPoint, nextPoint, t, space);
-    }
-
-    public Vector3 GetPositionByDistance(float distance, Space space = Space.World)
-    {
-      var t = GetInvertalByDistance(distance);
-      return GetPosition(t, space);
-    }
-
-    public Quaternion GetRotation(float t, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
-    {
-      var distance = Size * t;
-      return GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
-    }
-
-    public Quaternion GetRotation(float t, Vector3 upwards, Space space = Space.World)
-    {
-      var distance = Size * t;
-      return GetRotationByDistance(distance, upwards, space);
-    }
-
-    public Quaternion GetRotationByDistance(float distance, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
-    {
-      var rotation = data.GetRotation(distance);
-
-      if (isNormalizeRoll && TargetRoll.HasValue)
-      {
-        var startRoll = data.GetRotation(0).eulerAngles.z;
-        var euler = rotation.eulerAngles;
-
-        var t = GetInvertalByDistance(distance);
-        var currentRoll = Mathf.LerpAngle(startRoll, TargetRoll.Value, t);
-
-        rotation = Quaternion.Euler(euler.x, euler.y, currentRoll);
-      }
-      else
-      {
-        var t = GetInvertalByDistance(distance);
-        var plusRoll = Mathf.Lerp(currentPoint.GetRoll(isInheritRoll), nextPoint.GetRoll(isInheritRoll), t);
-
-        var euler = rotation.eulerAngles;
-        rotation = Quaternion.Euler(euler.x, euler.y, euler.z + plusRoll);
-      }
-
-      return space == Space.World ? currentPoint.LocalToWorld(rotation) : rotation;
-    }
-
-    public Quaternion GetRotationByDistance(float distance, Vector3 upwards, Space space = Space.World)
-    {
-      var forward = data.GetRotation(distance) * Vector3.forward;
-      return Quaternion.LookRotation(forward, upwards);
-    }
-
-    public bool GetPositionAndRotation(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
-    {
-      position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
+      if (space == DistanceSpace.Total) distance -= data.StartSize;
       return distance <= Size;
     }
 
-    public bool GetPositionAndRotation(float distance, out Vector3 position, out Quaternion rotation, Vector3 upwards, Space space = Space.World)
+    public float GetIntervalByDistance(float distance, DistanceSpace space = DistanceSpace.Relative)
+    {
+      return data.GetInterval(distance, space);
+    }
+
+    public Vector3 GetPosition(float t)
+    {
+      return MathBezier.GetPosition(Point, NextPoint, t);
+    }
+
+    public Quaternion GetRotation(float t)
+    {
+      return data.GetRotation(t);
+    }
+
+    public Quaternion GetRotation(float t, Vector3 up)
+    {
+      var forward = GetTangent(Point, NextPoint, t);
+      return Quaternion.LookRotation(forward, up);
+    }
+
+    public void GetPositionAndRotation(float t, out Vector3 position, out Quaternion rotation)
+    {
+      position = GetPosition(t);
+      rotation = GetRotation(t);
+    }
+
+    public Vector3 GetPositionByDistance(float distance, DistanceSpace space = DistanceSpace.Relative)
+    {
+      var t = GetIntervalByDistance(distance, space);
+      return GetPosition(t);
+    }
+
+    public Quaternion GetRotationByDistance(float distance, DistanceSpace space = DistanceSpace.Relative)
+    {
+      var t = GetIntervalByDistance(distance, space);
+      return GetRotation(t);
+    }
+
+    public Quaternion GetRotationByDistance(float distance, Vector3 upward, DistanceSpace space = DistanceSpace.Relative)
+    {
+      var t = GetIntervalByDistance(distance, space);
+      return GetRotation(t, upward);
+    }
+
+    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, DistanceSpace space = DistanceSpace.Relative)
     {
       position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, upwards, space);
-      return distance <= Size;
+      rotation = GetRotationByDistance(distance, space);
+      return IsInsideBounds(distance, space);
     }
 
-    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Space space = Space.World, bool isNormalizeRoll = false, bool isInheritRoll = false)
+
+  }
+
+  public enum DistanceSpace
+  {
+    Relative, Total
+  }
+
+  public class Info
+  {
+    private readonly float size;
+    private readonly IntervalInfo intervalInfo;
+    private readonly RotationInfo rotationInfo;
+
+    public Info(float size, IntervalInfo intervalInfo, RotationInfo rotationInfo)
     {
-      position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, space, isNormalizeRoll, isInheritRoll);
-      return distance <= Size;
+      this.size = size;
+      this.intervalInfo = intervalInfo;
+      this.rotationInfo = rotationInfo;
     }
 
-    public bool GetPositionAndRotationByDistance(float distance, out Vector3 position, out Quaternion rotation, Vector3 upwards, Space space = Space.World)
+    public float Size => intervalInfo.Size;
+    public float StartSize => size;
+    public float TotalSize => StartSize + intervalInfo.Size;
+
+    public float GetInterval(float distance, DistanceSpace space = DistanceSpace.Relative)
     {
-      position = GetPositionByDistance(distance, space);
-      rotation = GetRotationByDistance(distance, upwards, space);
-      return distance <= Size;
+      if (space == DistanceSpace.Total) distance -= size;
+      return intervalInfo.GetInverval(distance);
     }
 
-    public float GetInvertalByDistance(float distance)
-    {
-      return data.GetInverval(distance);
-    }
-
-    public BezierPoint Split(float t, out Vector3 tangentStartPosition, out Vector3 tangentEndPosition)
-    {
-      var tangentStart = currentPoint.GetTangentPosition(TangentSelect.Start, Space.Self);
-      var tangentEnd = nextPoint.GetTangentPosition(TangentSelect.End, Space.Self);
-
-      tangentStartPosition = Vector3.Lerp(currentPoint.Position, tangentStart, t);
-      tangentEndPosition = Vector3.Lerp(nextPoint.Position, tangentEnd, t);
-
-      var tangentLerp = Vector3.Lerp(tangentStart, tangentEnd, t);
-
-      var position = GetPosition(t, Space.Self);
-      var splitTangentStartPosition = Vector3.Lerp(tangentLerp, tangentEndPosition, t);
-      var splitTangentEndPosition = Vector3.Lerp(tangentStartPosition, tangentLerp, t);
-      var splitPoint = new BezierPoint(position, splitTangentStartPosition, splitTangentEndPosition);
-      splitPoint.CopyMatrix(currentPoint);
-      return splitPoint;
-    }
+    public Quaternion GetRotation(float t) => rotationInfo.GetRotation(t);
   }
 }

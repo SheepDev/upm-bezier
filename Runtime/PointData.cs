@@ -1,56 +1,148 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using static SheepDev.Bezier.Point;
 
 namespace SheepDev.Bezier
 {
   [Serializable]
-  public struct PointData
+  public class PointData
   {
-    [SerializeField]
-    private IntervalInfo intervalInfo;
-    [SerializeField]
-    private RotationInfo rotationInfo;
+    [SerializeField] internal Point point;
+    [SerializeField] private bool isPointDirty;
+    [SerializeField] private bool isDataDirty;
+    public IntervalInfo intervalInfo;
+    public RotationInfo rotationInfo;
+    [SerializeField] internal float startSize;
+    public float TotalSize => startSize + intervalInfo.Size;
 
-    public void UpdateInterval(BezierPoint point, BezierPoint nextPoint)
+    public Point Point => point;
+    public bool IsPointDirty => isPointDirty;
+    public bool IsDataDirty => isDataDirty;
+
+    public PointData(Point point)
     {
-      intervalInfo = MathBezier.CalculateSize(point, nextPoint);
+      SetPoint(point);
     }
 
-    public void UpdateRotation(BezierPoint point, BezierPoint nextPoint, Quaternion rotation)
+    public void UpdatePoint(Point previousPoint, Point nextPoint)
     {
-      rotationInfo = MathBezier.CalculateRotationCurve(rotation, point, nextPoint, intervalInfo);
+      if (isPointDirty)
+      {
+        point.CheckTangentVector(previousPoint, TangentSelect.End);
+        point.CheckTangentVector(nextPoint, TangentSelect.Start);
+        isPointDirty = false;
+      }
     }
 
-    public float GetCurveSize()
+    public void UpdateData(Quaternion baseRotation, Point previousPoint, Point nextPoint, bool isForceRotation = false)
     {
-      return intervalInfo.Size;
+      UpdatePoint(previousPoint, nextPoint);
+
+      if (isDataDirty) intervalInfo = MathBezier.CalculateSize(Point, nextPoint);
+
+      if (isDataDirty || isForceRotation)
+      {
+        rotationInfo = MathBezier.CalculateRotation(Point, nextPoint, baseRotation, intervalInfo, 5, 10, 20);
+      }
+
+      isDataDirty = false;
     }
 
-    public float GetInverval(float t)
+    public void MarkDirty()
     {
-      return intervalInfo.GetInverval(t);
+      isPointDirty = isDataDirty = true;
     }
 
-    public Quaternion GetRotation(float time)
+    public void SetPoint(Point value)
     {
-      return rotationInfo.GetRotation(time);
+      point = value;
+      MarkDirty();
     }
 
-    public static PointData Build(BezierPoint point, BezierPoint nextPoint, Quaternion rotation)
+    public override bool Equals(object obj)
     {
-      var data = new PointData();
-      data.UpdateInterval(point, nextPoint);
-      data.UpdateRotation(point, nextPoint, rotation);
+      return obj is PointData data &&
+             EqualityComparer<Point>.Default.Equals(Point, data.Point);
+    }
 
-      return data;
+    public override int GetHashCode()
+    {
+      int hashCode = -254689040;
+      return hashCode * -1521134295 + Point.GetHashCode();
+    }
+  }
+
+  [Serializable]
+  public struct RotationInfo
+  {
+    [SerializeField] internal List<Rotation> rotations;
+
+    public RotationInfo(List<Rotation> list) : this()
+    {
+      this.rotations = list;
+    }
+
+    private int Size => rotations.Count;
+
+    public void Add(float t, Quaternion rotation)
+    {
+      rotations.Add(new Rotation() { t = t, value = rotation });
+    }
+
+    public Quaternion GetRotation(float t)
+    {
+      if (rotations.Count <= 1) return rotations[0].value;
+      if (t >= 1) return rotations[Size - 1].value;
+
+      for (int index = 0; index < Size - 1; index++)
+      {
+        var roll = rotations[index];
+        var nextRoll = rotations[index + 1];
+
+        if (t >= roll.t && t < nextRoll.t)
+        {
+          var max = nextRoll.t - roll.t;
+          var current = t - roll.t;
+          var interval = (current / max);
+          return Quaternion.Lerp(roll.value, nextRoll.value, interval);
+        }
+      }
+
+      throw new Exception("Not find rotation");
+    }
+
+    public RotationInfo Convert(Quaternion worldRotation)
+    {
+      var rotations = new List<Rotation>(this.rotations);
+
+      for (int index = 0; index < Size; index++)
+      {
+        var rotation = rotations[index];
+        rotation.value = worldRotation * rotation.value;
+        rotations[index] = rotation;
+      }
+
+      return new RotationInfo(rotations);
+    }
+
+    public static RotationInfo Create()
+    {
+      return new RotationInfo(new List<Rotation>());
+    }
+
+    [Serializable]
+    public struct Rotation
+    {
+      public float t;
+      public Quaternion value;
     }
   }
 
   [Serializable]
   public struct IntervalInfo
   {
-    [SerializeField]
-    private AnimationCurve intervalCurve;
+    [SerializeField] private AnimationCurve intervalCurve;
 
     public float Size => (intervalCurve.keys.Length != 0) ? intervalCurve.keys[intervalCurve.keys.Length - 1].time : 0;
 
@@ -77,48 +169,6 @@ namespace SheepDev.Bezier
     public static IntervalInfo Create()
     {
       return new IntervalInfo(new AnimationCurve());
-    }
-  }
-
-  [Serializable]
-  public struct RotationInfo
-  {
-    public AnimationCurve x;
-    public AnimationCurve y;
-    public AnimationCurve z;
-    public AnimationCurve w;
-
-    public void Reset()
-    {
-      x = new AnimationCurve();
-      y = new AnimationCurve();
-      z = new AnimationCurve();
-      w = new AnimationCurve();
-    }
-
-    public void Save(Quaternion rotation, float time)
-    {
-      x.AddKey(new Keyframe(time, rotation.x, 0, 0, 0, 0));
-      y.AddKey(new Keyframe(time, rotation.y, 0, 0, 0, 0));
-      z.AddKey(new Keyframe(time, rotation.z, 0, 0, 0, 0));
-      w.AddKey(new Keyframe(time, rotation.w, 0, 0, 0, 0));
-    }
-
-    public Quaternion GetRotation(float time)
-    {
-      var x = this.x.Evaluate(time);
-      var y = this.y.Evaluate(time);
-      var z = this.z.Evaluate(time);
-      var w = this.w.Evaluate(time);
-
-      return new Quaternion(x, y, z, w);
-    }
-
-    public static RotationInfo Create()
-    {
-      var info = new RotationInfo();
-      info.Reset();
-      return info;
     }
   }
 }

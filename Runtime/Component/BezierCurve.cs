@@ -2,58 +2,77 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
-using static SheepDev.Bezier.BezierPoint;
+using static SheepDev.Bezier.Point;
 
 namespace SheepDev.Bezier
 {
   public class BezierCurve : MonoBehaviour, IEnumerable<SectionCurve>
   {
-    [SerializeField]
-    private bool isLoop;
-    [SerializeField]
-    private List<BezierPoint> points;
-    [SerializeField]
-    private List<PointData> datas;
-    [SerializeField]
+    public float minAngle = 8;
+    public float maxAngle = 14;
+    public int maxInteration;
+
+    [SerializeField] private bool isLoop;
+    [SerializeField] private List<PointData> datas;
+
     public UnityEvent onUpdated;
 
-    // Cache
     private Transform cacheTransform;
 
-    public int Lenght => points.Count;
     public bool IsLoop => isLoop;
+    public int PointLenght => datas.Count;
+    public int SectionLenght => (isLoop) ? PointLenght : PointLenght - 1;
+    public float Size => datas[SectionLenght - 1].TotalSize;
 
-    public void SetPoint(int index, BezierPoint point)
+    public void Add(int index, Point point, Space space = Space.World)
     {
-      var oldPoint = points[index];
-      if (oldPoint.Equals(point)) return;
+      if (space == Space.World)
+      {
+        point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
+      }
 
-      var transform = GetTransform();
-      point.matrix = transform.localToWorldMatrix;
-      points[index] = point;
+      datas.Insert(index, new PointData(point));
+      onUpdated.Invoke();
+    }
 
-      var previousIndex = GetPreviousIndexPoint(index);
-      var nextIndex = GetNextIndexPoint(index);
+    public void Remove(int index)
+    {
+      datas.RemoveAt(index);
+      onUpdated.Invoke();
+    }
 
-      CheckPoint(previousIndex);
-      CheckPoint(index);
-      CheckPoint(nextIndex);
+    public void Split(int index, float t)
+    {
+      var data = datas[index];
+      var nextData = GetNextData(index);
+      var splitPoint = MathBezier.Split(data.Point, nextData.Point, t, out var tangentStart, out var tangentEnd);
 
-      UpdateDataSize(previousIndex);
-      UpdateDataSize(index);
-      UpdateDataSize(nextIndex);
+      data.point.SetTangentPosition(tangentStart, TangentSelect.Start);
+      nextData.point.SetTangentPosition(tangentEnd, TangentSelect.End);
 
-      UpdateRotation();
+      var splitIndex = index + 1;
+      Add(splitIndex, splitPoint, Space.Self);
+    }
+
+    public void SetPoint(int index, Point point, Space space = Space.World)
+    {
+      if (space == Space.World)
+      {
+        point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
+      }
+
+      var data = datas[index];
+      if (data.Point.Equals(point)) return;
+
+      data.SetPoint(point);
+      GetPreviousData(index).MarkDirty();
+      GetNextData(index).MarkDirty();
+
       onUpdated.Invoke();
     }
 
     public void SetPointRoll(int index, float roll)
     {
-      var point = points[index];
-      point.SetRoll(roll);
-      points[index] = point;
-
-      UpdateRoll(index);
       onUpdated.Invoke();
     }
 
@@ -63,181 +82,136 @@ namespace SheepDev.Bezier
       onUpdated.Invoke();
     }
 
-    public void Split(int index, float t)
+    public Point GetPoint(int index, Space space = Space.World)
     {
-      var section = GetSection(index);
-      var splitPoint = section.Split(t, out var tangentStartPosition, out var tangentEndPosition);
-      splitPoint.isDirty = true;
+      var data = datas[index];
+      var previousData = GetPreviousData(index);
+      var nextData = GetNextData(index);
+      data.UpdatePoint(previousData.Point, nextData.Point);
 
-      section.currentPoint.SetTangentPosition(tangentStartPosition, TangentSelect.Start, Space.Self);
-      section.nextPoint.SetTangentPosition(tangentEndPosition, TangentSelect.End, Space.Self);
-
-      var nextIndex = GetNextIndexPoint(index);
-      points[index] = section.CurrentPoint;
-      points[nextIndex] = section.NextPoint;
-
-      var splitIndex = index + 1;
-      points.Insert(splitIndex, splitPoint);
-      datas.Insert(splitIndex, new PointData());
-
-      CheckPoint(splitIndex);
-      UpdateDataSize(index);
-      UpdateDataSize(splitIndex);
-
-      UpdateRotation();
-      onUpdated.Invoke();
-    }
-
-    public void RemovePoint(int index)
-    {
-      points.RemoveAt(index);
-      datas.RemoveAt(index);
-
-      var previousIndex = GetPreviousIndexPoint(index);
-      var nextIndex = GetNextIndexPoint(previousIndex);
-
-      CheckPoint(previousIndex);
-      CheckPoint(nextIndex);
-      UpdateDataSize(previousIndex, true);
-      UpdateDataSize(nextIndex);
-
-      UpdateRotation();
-      onUpdated.Invoke();
-    }
-
-    public BezierPoint GetPoint(int index)
-    {
-      var point = points[index];
-      point.matrix = GetTransform().localToWorldMatrix;
-      return point;
-    }
-
-    public SectionCurve GetSection(int index)
-    {
-      var nextIndex = GetNextIndexPoint(index);
-      var currentPoint = GetPoint(index);
-      var nextPoint = GetPoint(nextIndex);
-
-      if (index == Lenght - 1)
+      if (space == Space.World)
       {
-        var targetRotation = datas[nextIndex].GetRotation(0);
-        var targetRoll = targetRotation.eulerAngles.z + nextPoint.GetRoll();
-        return new SectionCurve(currentPoint, nextPoint, datas[index], targetRoll);
+        return Point.ConvertPoint(data.Point, GetTransform().localToWorldMatrix);
       }
 
-      return new SectionCurve(currentPoint, nextPoint, datas[index]);
+      return data.Point;
     }
 
-    public float GetSize()
+    public Point GetPreviousPoint(int index, Space space = Space.World)
     {
-      var size = 0f;
+      index = GetPreviousIndex(index);
+      return GetPoint(index);
+    }
 
-      foreach (var section in this)
+    public Point GetNextPoint(int index, Space space = Space.World)
+    {
+      index = GetNextIndex(index);
+      return GetPoint(index);
+    }
+
+    public SectionCurve GetSection(int index, Space space = Space.World)
+    {
+      UpdateData();
+
+      var data = datas[index];
+      var point = GetPoint(index, space);
+      var nextPoint = GetNextPoint(index, space);
+      var rotationInfo = (space == Space.World) ?
+        data.rotationInfo.Convert(GetTransform().rotation) : data.rotationInfo;
+
+      var info = new Info(data.startSize, data.intervalInfo, rotationInfo);
+      return new SectionCurve(point, nextPoint, info);
+    }
+
+    public SectionCurve GetSection(float distance, Space space = Space.World)
+    {
+      for (int i = 0; i < SectionLenght; i++)
       {
-        size += section.Size;
+        var data = datas[i];
+
+        if (data.startSize <= distance && distance <= data.TotalSize)
+        {
+          return GetSection(i, space);
+        }
       }
 
-      return size;
+      return GetSection(SectionLenght - 1);
+    }
+
+    private PointData GetPreviousData(int index)
+    {
+      var previousIndex = GetPreviousIndex(index);
+      return datas[previousIndex];
+    }
+
+    private PointData GetNextData(int index)
+    {
+      var nextIndex = GetNextIndex(index);
+      return datas[nextIndex];
+    }
+
+    public int GetNextIndex(int currentIndex)
+    {
+      return (int)Mathf.Repeat(currentIndex + 1, PointLenght);
+    }
+
+    public int GetPreviousIndex(int currentIndex)
+    {
+      return (int)Mathf.Repeat(currentIndex - 1, PointLenght);
     }
 
     public Transform GetTransform()
     {
+#if UNITY_EDITOR
+      if (!Application.isPlaying)
+      {
+        var isGet = TryGetComponent(out Transform transform);
+        return isGet ? transform : default;
+      }
+      else if (cacheTransform == null)
+      {
+        cacheTransform = transform;
+      }
+
+      return cacheTransform;
+#else
       if (cacheTransform == null)
       {
         cacheTransform = transform;
       }
 
       return transform;
+#endif
     }
 
-    public int GetNextIndexPoint(int currentIndex)
+    private void UpdateData()
     {
-      return (int)Mathf.Repeat(currentIndex + 1, Lenght);
-    }
+      var firstPoint = GetPoint(0, Space.Self);
+      var secondPoint = GetPoint(1, Space.Self);
+      var forward = MathBezier.GetTangent(firstPoint, secondPoint, 0);
+      var rotation = Quaternion.LookRotation(forward, GetTransform().up);
 
-    public int GetPreviousIndexPoint(int currentIndex)
-    {
-      return (int)Mathf.Repeat(currentIndex - 1, Lenght);
-    }
+      var isForceCalculateRotation = false;
+      var sizeTotal = 0f;
 
-    private void CheckPoint(int index)
-    {
-      var previousIndex = GetPreviousIndexPoint(index);
-      var nextIndex = GetNextIndexPoint(index);
-
-      var previousPoint = points[previousIndex];
-      var currentPoint = points[index];
-      var nextPoint = points[nextIndex];
-
-      previousPoint.CheckTangentVector(currentPoint, TangentSelect.Start);
-      currentPoint.CheckTangentVector(nextPoint, TangentSelect.Start);
-      currentPoint.CheckTangentVector(previousPoint, TangentSelect.End);
-      nextPoint.CheckTangentVector(currentPoint, TangentSelect.End);
-
-      points[previousIndex] = previousPoint;
-      points[index] = currentPoint;
-      points[nextIndex] = nextPoint;
-    }
-
-    private void UpdateDataSize(int index, bool isForce = false)
-    {
-      var nextIndex = GetNextIndexPoint(index);
-      var point = points[index];
-      var nextPoint = points[nextIndex];
-
-      if (isForce || point.isDirty || nextPoint.isDirty)
+      for (var index = 0; index < PointLenght; index++)
       {
         var data = datas[index];
-        data.UpdateInterval(point, nextPoint);
-        datas[index] = data;
+        var previousPoint = GetPreviousPoint(index);
+        var nextPoint = GetNextPoint(index);
 
-        point.isDirty = false;
-      }
+        if (data.IsDataDirty) isForceCalculateRotation = true;
 
-      points[index] = point;
-    }
-
-    private void UpdateRotation()
-    {
-      var beginRotation = Quaternion.LookRotation(points[0].Forward, transform.up);
-      var rotation = beginRotation;
-
-      for (int index = 0; index < Lenght; index++)
-      {
-        var nextIndex = GetNextIndexPoint(index);
-        var point = points[index];
-        var nextPoint = points[nextIndex];
-        var data = datas[index];
-
-        data.UpdateRotation(point, nextPoint, rotation);
-        datas[index] = data;
-
-        if (index < Lenght - 1)
-        {
-          nextPoint.inheritRoll = point.inheritRoll + point.GetRoll();
-          points[nextIndex] = nextPoint;
-        }
-
-        rotation = data.GetRotation(data.GetCurveSize());
-      }
-    }
-
-    private void UpdateRoll(int beginIndex)
-    {
-      for (int index = beginIndex; index < Lenght - 1; index++)
-      {
-        var nextIndex = GetNextIndexPoint(index);
-        var point = points[index];
-        var nextPoint = points[nextIndex];
-
-        nextPoint.inheritRoll = point.inheritRoll + point.GetRoll();
-        points[nextIndex] = nextPoint;
+        data.UpdateData(rotation, previousPoint, nextPoint, isForceCalculateRotation);
+        data.startSize = sizeTotal;
+        rotation = data.rotationInfo.GetRotation(1);
+        sizeTotal += data.intervalInfo.Size;
       }
     }
 
     private void OnValidate()
     {
-      var isInvalidPoints = points is null || points.Count < 2;
+      var isInvalidPoints = datas is null || datas.Count < 2;
       if (isInvalidPoints)
       {
         Reset();
@@ -250,24 +224,18 @@ namespace SheepDev.Bezier
       var tangentStart = new Tangent(Vector3.right * 3, TangentType.Aligned);
       var tangentEnd = new Tangent(-Vector3.right * 3, TangentType.Aligned);
 
-      var point1 = new BezierPoint(Vector3.zero, tangentStart, tangentEnd);
-      var point2 = new BezierPoint(transform.forward * 10, tangentStart, tangentEnd);
+      var point1 = new Point(Vector3.zero, tangentStart, tangentEnd);
+      var point2 = new Point(Vector3.forward * 10, tangentStart, tangentEnd);
 
-      point1.matrix = point2.matrix = transform.localToWorldMatrix;
-      points = new List<BezierPoint> { point1, point2 };
-
-      var beginRotation = Quaternion.LookRotation(point1.Forward, transform.up);
-      var data1 = PointData.Build(point1, point2, beginRotation);
-
-      var rotation = data1.GetRotation(data1.GetCurveSize());
-      var data2 = PointData.Build(point2, point1, rotation);
-
-      datas = new List<PointData> { data1, data2 };
+      datas = new List<PointData>();
+      datas.Add(new PointData(point1));
+      datas.Add(new PointData(point2));
     }
 
     public IEnumerator<SectionCurve> GetEnumerator()
     {
-      var count = (isLoop) ? points.Count : points.Count - 1;
+      var count = (isLoop) ? PointLenght : PointLenght - 1;
+
       for (int index = 0; index < count; index++)
       {
         yield return GetSection(index);
