@@ -57,7 +57,7 @@ namespace SheepDev.Bezier
     {
       var transform = GetTransform();
       var point = curve.GetPoint(targetPointIndex);
-      var targetPosition = point.WorldPosition;
+      var targetPosition = point.position;
 
       lastPosition = transform.position = targetPosition;
     }
@@ -69,7 +69,7 @@ namespace SheepDev.Bezier
       var point = curve.GetPoint(targetPointIndex);
       var targetPosition = transform.position;
 
-      point.SetPosition(targetPosition);
+      point.position = targetPosition;
       curve.SetPoint(targetPointIndex, point);
       lastPosition = targetPosition;
     }
@@ -92,7 +92,7 @@ namespace SheepDev.Bezier
         return;
       }
 
-      targetPointIndex = Mathf.Clamp(targetPointIndex, 0, curve.Lenght - 1);
+      targetPointIndex = Mathf.Clamp(targetPointIndex, 0, curve.PointLenght - 1);
     }
 
     private void OnDrawGizmosSelected()
@@ -103,7 +103,7 @@ namespace SheepDev.Bezier
         var point = curve.GetPoint(targetPointIndex);
 
         Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(transform.position, point.WorldPosition);
+        Gizmos.DrawLine(transform.position, point.position);
       }
     }
   }
