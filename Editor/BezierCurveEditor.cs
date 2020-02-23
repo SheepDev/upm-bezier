@@ -2,14 +2,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 using static SheepDev.Bezier.Point;
+using System;
 
 namespace SheepDev.Bezier
 {
   [CustomEditor(typeof(BezierCurve), true)]
   public class BezierCurveEditor : Editor
   {
-    public static SelectCurve ActiveCurve;
     private static EditorBehaviour<SelectCurve>[] behaviours;
+    public SelectCurve activeCurve;
+
+    private static bool IsEdit;
+    private static int SelectIndexPoint;
 
     static BezierCurveEditor()
     {
@@ -21,24 +25,29 @@ namespace SheepDev.Bezier
     private void OnEnable()
     {
       var activeCurve = new SelectCurve(target as BezierCurve);
-      var isEqual = ActiveCurve != null && ActiveCurve.Equals(activeCurve);
+      var isEqual = this.activeCurve != null && this.activeCurve.Equals(activeCurve);
 
       if (!isEqual)
       {
         activeCurve.repaint += Repaint;
-        ActiveCurve = activeCurve;
+        activeCurve.isEdit = IsEdit;
+        activeCurve.pointIndex = SelectIndexPoint;
+        this.activeCurve = activeCurve;
       }
     }
 
     private void OnDisable()
     {
-      if (ActiveCurve.IsEdit && Selection.activeGameObject == null)
+      if (activeCurve.IsEdit && Selection.activeGameObject == null)
       {
-        Selection.activeGameObject = ActiveCurve.curve.gameObject;
+        IsEdit = activeCurve.isEdit;
+        SelectIndexPoint = activeCurve.pointIndex;
+        Selection.activeGameObject = activeCurve.curve.gameObject;
       }
       else
       {
-        ActiveCurve.Edit(false);
+        IsEdit = false;
+        SelectIndexPoint = -1;
       }
     }
 
@@ -47,7 +56,7 @@ namespace SheepDev.Bezier
       foreach (var behaviour in behaviours)
       {
         behaviour.Reset();
-        behaviour.BeforeSceneGUI(ActiveCurve);
+        behaviour.BeforeSceneGUI(activeCurve);
         behaviour.SceneGUI(SceneView.lastActiveSceneView);
       }
     }
@@ -59,11 +68,11 @@ namespace SheepDev.Bezier
       var isLoopProperty = serializedObject.FindProperty("isLoop");
       EditorGUILayout.PropertyField(isLoopProperty);
 
-      if (ActiveCurve.IsEdit && ActiveCurve.IsSelectPoint)
+      if (activeCurve.IsEdit && activeCurve.IsSelectPoint)
       {
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Active Point: " + ActiveCurve.PointIndex);
-        var point = ActiveCurve.GetSelectPoint();
+        EditorGUILayout.LabelField("Active Point: " + activeCurve.PointIndex);
+        var point = activeCurve.GetSelectPoint();
         var newTangentStartType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.Start), "Tangent Start Type");
         var newTangentEndType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.End), "Tangent End Type");
         var roll = EditorGUILayout.FloatField("Roll", point.GetRoll());
@@ -72,7 +81,7 @@ namespace SheepDev.Bezier
         point.SetTangentType(newTangentEndType, TangentSelect.End);
         point.SetRoll(roll);
 
-        if (ActiveCurve.SetSelectPoint(point))
+        if (activeCurve.SetSelectPoint(point))
         {
           SceneView.RepaintAll();
         }
@@ -90,8 +99,8 @@ namespace SheepDev.Bezier
 
     private void EditButtonGUI()
     {
-      var text = (ActiveCurve.IsEdit) ? "Finish" : "Start Edit";
-      if (GUILayout.Button(text)) ActiveCurve.EditToggle();
+      var text = (activeCurve.IsEdit) ? "Finish" : "Start Edit";
+      if (GUILayout.Button(text)) activeCurve.EditToggle();
     }
 
     private TangentType EnumTangentTypeGUI(TangentType selected, string name)
@@ -119,8 +128,8 @@ namespace SheepDev.Bezier
     public BezierCurve curve;
     public SelectBezierPart bezierPart;
 
-    private bool isEdit;
-    private int pointIndex;
+    internal bool isEdit;
+    internal int pointIndex;
 
     public delegate void Callback();
     public Callback repaint;
@@ -189,8 +198,7 @@ namespace SheepDev.Bezier
 
     public override bool Equals(object obj)
     {
-      return obj is SelectCurve curve &&
-             EqualityComparer<BezierCurve>.Default.Equals(this.curve, curve.curve);
+      return obj is SelectCurve select && select.curve == this.curve;
     }
 
     public override int GetHashCode()
