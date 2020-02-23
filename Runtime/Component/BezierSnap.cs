@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using SheepDev.Bezier.Utility;
+using UnityEngine;
 
 namespace SheepDev.Bezier
 {
@@ -6,36 +7,16 @@ namespace SheepDev.Bezier
   public class BezierSnap : MonoBehaviour
   {
     [SerializeField] private BezierCurve curve;
-
-    [Header("Position Setting")]
-    public PositionSetting positionSetting;
-    [SerializeField] private int sectionIndex;
-    [SerializeField] [Range(0f, 1f)] private float t;
-    [SerializeField] internal float distance;
-    [SerializeField] [Range(0f, 1f)] private float porcent;
-
-    [Header("Rotate Setting")]
-    public RotateSetting rotateSetting;
-    public bool isFixedValueUpward;
-    [SerializeField] private Vector3 fixedUpward;
+    public BezierPosition position;
+    public BezierRotation rotation;
     private Transform cacheTransform;
 
     public BezierCurve Curve => curve;
     public bool HasBezier => curve != null;
-    public int SectionIndex => sectionIndex;
-    public float T { get => t; set => t = Mathf.Clamp01(value); }
-    public float Porcent { get => porcent; set => porcent = Mathf.Clamp01(value); }
-
-    public BezierSnap()
-    {
-      rotateSetting = RotateSetting.Default;
-      fixedUpward = Vector3.up;
-    }
 
     private void OnEnable()
     {
       if (DisableIsInvalid()) return;
-      SetSectionIndex(sectionIndex);
     }
 
     private void Update()
@@ -49,8 +30,9 @@ namespace SheepDev.Bezier
       if (!HasBezier) return;
 
       var transform = GetTransform();
-      transform.position = GetTargetPosition();
-      if (GetTargetRotation(out var targetRotation))
+      transform.position = GetSnapPosition();
+
+      if (GetRotation(transform, out var targetRotation))
       {
         transform.rotation = targetRotation;
       }
@@ -62,66 +44,32 @@ namespace SheepDev.Bezier
       enabled = HasBezier && isEnable;
     }
 
-    public void SetSectionIndex(int index)
+    public Vector3 GetSnapPosition()
     {
-      var max = HasBezier ? curve.SectionLenght - 1 : 0;
-      sectionIndex = Mathf.Clamp(sectionIndex, 0, max);
+      return position.GetTargetPosition(curve);
     }
 
-    public void SetUpward(Vector3 upward)
+    public bool GetSnapRotation(out Quaternion targetRotation)
     {
-      this.fixedUpward = upward == Vector3.zero ? Vector3.up : upward.normalized;
+      var transform = GetTransform();
+      return GetRotation(transform, out targetRotation);
     }
 
-    public void SetDistance(float distance)
+    private bool GetRotation(Transform transform, out Quaternion targetRotation)
     {
-      if (curve.IsLoop) distance = Mathf.Repeat(distance, curve.Size);
-      this.distance = Mathf.Clamp(distance, 0, curve.Size);
-    }
+      var section = position.GetSection(curve);
 
-    public Vector3 GetTargetPosition()
-    {
-      var section = GetSection(out float targetDistance);
-
-      switch (positionSetting)
+      switch (position.setting)
       {
         case PositionSetting.Default:
+          return rotation.GetTargetRotationByDistance(transform, section, position.Distance, out targetRotation);
         case PositionSetting.Porcent:
-          return section.GetPositionByDistance(targetDistance, DistanceSpace.Total);
+          return rotation.GetTargetRotationByDistance(transform, section, curve.Size * position.Porcent, out targetRotation);
         case PositionSetting.Section:
-          return section.GetPosition(t);
+          return rotation.GetTargetRotation(transform, position.T, section, out targetRotation);
       }
 
       throw new System.Exception();
-    }
-
-    public bool GetTargetRotation(out Quaternion targetRotation)
-    {
-      targetRotation = Quaternion.identity;
-      if (rotateSetting == RotateSetting.None) return false;
-
-      var section = GetSection(out float targetDistance);
-      var isUseDistance = positionSetting <= PositionSetting.Porcent;
-
-      switch (rotateSetting)
-      {
-        case RotateSetting.Default:
-          targetRotation = isUseDistance ?
-            section.GetRotationByDistance(targetDistance, DistanceSpace.Total) : section.GetRotation(t);
-          break;
-        case RotateSetting.Upward:
-          var upward = GetUpward();
-          targetRotation = isUseDistance ?
-            section.GetRotationByDistance(targetDistance, upward, DistanceSpace.Total) : section.GetRotation(t, upward);
-          break;
-      }
-
-      return true;
-    }
-
-    public Vector3 GetUpward()
-    {
-      return isFixedValueUpward ? fixedUpward : GetTransform().up;
     }
 
     public Transform GetTransform()
@@ -141,50 +89,14 @@ namespace SheepDev.Bezier
       return isDisable;
     }
 
-    private SectionCurve GetSection(out float targetDistance)
-    {
-      targetDistance = 0f;
-
-      switch (positionSetting)
-      {
-        case PositionSetting.Default:
-        case PositionSetting.Porcent:
-          var isPorcent = positionSetting == PositionSetting.Porcent;
-          targetDistance = isPorcent ? curve.Size * porcent : this.distance;
-          return GetSection(targetDistance);
-        case PositionSetting.Section:
-          return GetSection(sectionIndex);
-      }
-
-      throw new System.Exception();
-    }
-
-    private SectionCurve GetSection(int index)
-    {
-      return curve.GetSection(index);
-    }
-
-    private SectionCurve GetSection(float distance)
-    {
-      return curve.GetSection(distance);
-    }
-
     public void OnValidate()
     {
       if (DisableIsInvalid()) return;
-      SetSectionIndex(sectionIndex);
-      SetUpward(fixedUpward);
-      SetDistance(distance);
+
+      position.SetDistance(curve, position.Distance);
+      position.SetSectionIndex(curve, position.SectionIndex);
+
+      rotation.SetUpward(rotation.FixedUpward);
     }
-  }
-
-  public enum PositionSetting
-  {
-    Default, Porcent, Section
-  }
-
-  public enum RotateSetting
-  {
-    None, Default, Upward
   }
 }
