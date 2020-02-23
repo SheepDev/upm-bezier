@@ -7,6 +7,8 @@ namespace SheepDev.Bezier
 {
   public class EventEditor : EditorBehaviour<SelectCurve>
   {
+    public SelectCurve selectCurve;
+
     public override void Reset()
     {
     }
@@ -14,6 +16,7 @@ namespace SheepDev.Bezier
     public override void BeforeSceneGUI(SelectCurve select)
     {
       if (!select.IsEdit) return;
+      selectCurve = select;
 
       if (GetKeyUp(KeyCode.C, out var cEvent))
       {
@@ -47,7 +50,6 @@ namespace SheepDev.Bezier
 
     private void Frame(SceneView view)
     {
-      var selectCurve = BezierCurveEditor.ActiveCurve;
       var isSelectBounds = selectCurve.IsEdit && selectCurve.IsSelectPoint;
       var bounds = isSelectBounds ? SelectPointBounds(selectCurve) : CurveBounds(selectCurve);
       view.Frame(bounds);
