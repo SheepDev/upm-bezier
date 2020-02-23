@@ -1,35 +1,48 @@
+using SheepDev.Bezier.Utility;
 using UnityEngine;
 
 namespace SheepDev.Bezier
 {
-  [RequireComponent(typeof(BezierSnap))]
+  [ExecuteInEditMode]
   public class BezierMove : MonoBehaviour
   {
+    public BezierCurve curve;
+    [SerializeField] private BezierPosition position;
+    public BezierRotation rotation;
+
+    [Header("Motion Settings")]
     public float speed;
     public float slerpSpeed;
 
-    public BezierSnap snap { get; private set; }
+    private Transform cacheTransform;
 
-    private void Awake()
+    public BezierPosition Position => position;
+
+    public BezierMove()
     {
-      snap = GetComponent<BezierSnap>();
-      snap.positionSetting = PositionSetting.Default;
+      position.setting = PositionSetting.Default;
     }
 
     private void Update()
     {
-      var transform = snap.GetTransform();
-      snap.SetDistance(snap.distance + Time.deltaTime * speed);
+      var transform = GetTransform();
+      transform.position = GetTargetPosition();
 
-      transform.position = snap.GetTargetPosition();
-      if (snap.GetTargetRotation(out var targetRotation))
+      if (GetRotation(transform, out var targetRotation))
       {
-        if (snap.rotateSetting == RotateSetting.Upward)
+        if (rotation.IsUpward)
         {
           var currentUp = transform.rotation * Vector3.up;
           var desiredUp = targetRotation * Vector3.up;
           var targetUp = Vector3.RotateTowards(currentUp, desiredUp, Time.deltaTime * slerpSpeed, 1);
           var rotation = Quaternion.LookRotation(targetRotation * Vector3.forward, targetUp);
+
+#if UNITY_EDITOR
+          if (Application.isEditor && !Application.isPlaying)
+          {
+            rotation = targetRotation;
+          }
+#endif
           transform.rotation = rotation;
         }
         else
@@ -37,13 +50,57 @@ namespace SheepDev.Bezier
           transform.rotation = targetRotation;
         }
       }
+
+#if UNITY_EDITOR
+      if (Application.isEditor && !Application.isPlaying) return;
+#endif
+
+      var nextDistance = position.Distance + Time.deltaTime * speed;
+      position.SetDistance(curve, nextDistance);
     }
 
-    private void OnValidate()
+    public Vector3 GetTargetPosition()
     {
-      var snap = GetComponent<BezierSnap>();
-      snap.positionSetting = PositionSetting.Default;
-      snap.enabled = false;
+      return position.GetTargetPosition(curve);
+    }
+
+    public bool GetTargetRotation(out Quaternion targetRotation)
+    {
+      var transform = GetTransform();
+      return GetRotation(transform, out targetRotation);
+    }
+
+    private bool GetRotation(Transform transform, out Quaternion targetRotation)
+    {
+      var section = position.GetSection(curve);
+
+      switch (position.setting)
+      {
+        case PositionSetting.Default:
+          return rotation.GetTargetRotationByDistance(transform, section, position.Distance, out targetRotation);
+        case PositionSetting.Porcent:
+          return rotation.GetTargetRotationByDistance(transform, section, curve.Size * position.Porcent, out targetRotation);
+        case PositionSetting.Section:
+          return rotation.GetTargetRotation(transform, position.T, section, out targetRotation);
+      }
+
+      throw new System.Exception();
+    }
+
+    public Transform GetTransform()
+    {
+      if (cacheTransform == null)
+      {
+        cacheTransform = transform;
+      }
+
+      return cacheTransform;
+    }
+
+    public void OnValidate()
+    {
+      position.SetDistance(curve, position.Distance);
+      rotation.SetUpward(rotation.FixedUpward);
     }
   }
 }
