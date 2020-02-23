@@ -1,6 +1,6 @@
-using SheepDev.Utility.Editor;
+using SheepDev.Bezier.Utility;
+using SheepDev.EditorBezier.Utility;
 using UnityEditor;
-using UnityEngine;
 
 namespace SheepDev.Bezier
 {
@@ -8,24 +8,26 @@ namespace SheepDev.Bezier
   [CustomEditor(typeof(BezierSnap), true)]
   public class BezierSnapEditor : Editor
   {
-    private static bool IsShowGizmo;
-    private static float GizmoGlobalScala;
+    private static GizmoDataEditor gizmoData;
+
     private BezierSnap script;
-    private bool HasBezierMove => script.GetComponent<BezierMove>() != null;
+    private BezierRotationEditor rotationEditor;
+    private BezierPositionEditor positionEditor;
 
     static BezierSnapEditor()
     {
-      GizmoGlobalScala = 1f;
+      gizmoData = new GizmoDataEditor();
+    }
+
+    public BezierSnapEditor()
+    {
+      rotationEditor = new BezierRotationEditor();
+      positionEditor = new BezierPositionEditor();
     }
 
     private void OnEnable()
     {
       script = target as BezierSnap;
-
-      if (HasBezierMove)
-      {
-        script.positionSetting = PositionSetting.Default;
-      }
     }
 
     private void OnDisable()
@@ -38,22 +40,24 @@ namespace SheepDev.Bezier
       var isEnable = script.isActiveAndEnabled;
       Tools.hidden = isEnable && Tools.current != Tool.Scale;
 
-      if (!IsShowGizmo) return;
+      if (!gizmoData.isShow) return;
 
-      var position = script.GetTargetPosition();
-      var sizeScale = HandleUtility.GetHandleSize(position) * GizmoGlobalScala;
-      Handles.SphereHandleCap(0, position, Quaternion.identity, sizeScale * .2f, EventType.Repaint);
+      var gizmoScale = gizmoData.scale;
+      var targetPosition = script.GetSnapPosition();
+      positionEditor.PositionSceneGUI(targetPosition, gizmoScale);
 
-      var hasRotation = script.GetTargetRotation(out var targetRotation);
+      bool hasRotation = script.GetSnapRotation(out var targetRotation);
+      if (!hasRotation) return;
 
-      if (hasRotation && script.rotateSetting == RotateSetting.Upward)
+      if (script.rotation.setting == RotateSetting.Upward)
       {
-        var upward = script.GetUpward();
-        Handles.color = Color.cyan;
-        Handles.ArrowHandleCap(0, position, Quaternion.LookRotation(upward), sizeScale * 1.5f, EventType.Repaint);
+        var upward = script.rotation.GetUpward(script.GetTransform());
+        rotationEditor.RotationUpwardSceneGUI(targetPosition, targetRotation, upward, gizmoScale);
       }
-
-      if (hasRotation) HandleExtension.RotationAxisView(position, targetRotation, 1f * GizmoGlobalScala);
+      else
+      {
+        rotationEditor.RotationSceneGUI(targetPosition, targetRotation, gizmoScale);
+      }
     }
 
     public override void OnInspectorGUI()
@@ -62,9 +66,9 @@ namespace SheepDev.Bezier
 
       EditorGUI.BeginDisabledGroup(!isValid);
       EditorGUILayout.Space();
-      PositionSettingProperty();
+      positionEditor.PositionSettingProperty(serializedObject.FindProperty("position"));
       EditorGUILayout.Space();
-      RotateSettingProperty();
+      rotationEditor.RotationSettingProperty(serializedObject.FindProperty("rotation"));
       EditorGUI.EndDisabledGroup();
 
       if (serializedObject.hasModifiedProperties)
@@ -73,12 +77,13 @@ namespace SheepDev.Bezier
         serializedObject.ApplyModifiedProperties();
       }
 
-      EditorProperty();
+      gizmoData.Inspector();
     }
 
     private bool CurveProperty()
     {
-      var curveProperty = GetAndDrawProperty("curve");
+      var curveProperty = serializedObject.FindProperty("curve");
+      EditorGUILayout.PropertyField(curveProperty);
       var isValid = curveProperty.objectReferenceValue != null;
 
       if (!isValid)
@@ -87,75 +92,6 @@ namespace SheepDev.Bezier
       }
 
       return isValid;
-    }
-
-    private void PositionSettingProperty()
-    {
-      var disableChangeSetting = HasBezierMove;
-
-      EditorGUI.BeginDisabledGroup(disableChangeSetting);
-      var settingProperty = GetAndDrawProperty("positionSetting");
-      EditorGUI.EndDisabledGroup();
-
-      if (disableChangeSetting)
-      {
-        settingProperty.enumValueIndex = (int)PositionSetting.Default;
-        EditorGUILayout.HelpBox("not possible to change, because is has bezier move!", MessageType.Info);
-      }
-
-      var settingValue = (PositionSetting)settingProperty.enumValueIndex;
-      switch (settingValue)
-      {
-        case PositionSetting.Default:
-          GetAndDrawProperty("distance");
-          break;
-        case PositionSetting.Porcent:
-          GetAndDrawProperty("porcent");
-          break;
-        case PositionSetting.Section:
-          GetAndDrawProperty("sectionIndex");
-          GetAndDrawProperty("t");
-          break;
-      }
-    }
-
-    private void RotateSettingProperty()
-    {
-      var setting = (RotateSetting)GetAndDrawProperty("rotateSetting").enumValueIndex;
-      if (setting == RotateSetting.Upward)
-      {
-        var isFixed = GetAndDrawProperty("isFixedValueUpward").boolValue;
-
-        EditorGUI.BeginDisabledGroup(!isFixed);
-        GetAndDrawProperty("fixedUpward");
-        EditorGUI.EndDisabledGroup();
-      }
-    }
-
-    private void EditorProperty()
-    {
-      EditorGUILayout.Space();
-      var isShow = EditorGUILayout.Toggle("Show Gizmos", IsShowGizmo);
-      var isRepaint = false;
-
-      isRepaint |= isShow != IsShowGizmo;
-      IsShowGizmo = isShow;
-
-      if (IsShowGizmo)
-      {
-        var gizmoScala = EditorGUILayout.Slider("Gizmo Size", GizmoGlobalScala, .6f, 2);
-        isRepaint |= gizmoScala != GizmoGlobalScala;
-        GizmoGlobalScala = gizmoScala;
-      }
-
-      if (isRepaint) SceneView.lastActiveSceneView.Repaint();
-    }
-
-    private SerializedProperty GetAndDrawProperty(string name)
-    {
-      var property = serializedObject.FindProperty(name);
-      EditorGUILayout.PropertyField(property);
-      return property;
     }
   }
 }
