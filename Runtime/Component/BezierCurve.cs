@@ -8,14 +8,16 @@ namespace SheepDev.Bezier
 {
   public class BezierCurve : MonoBehaviour, IEnumerable<SectionCurve>
   {
-    public float minAngle = 8;
-    public float maxAngle = 14;
-    public int maxInteration;
-
     [SerializeField] private bool isLoop;
     [SerializeField] private List<PointData> datas;
 
+    [Header("Event")]
     public UnityEvent onUpdated;
+
+    [Header("Advanced option")]
+    [SerializeField] private float minAngle;
+    [SerializeField] private float maxAngle;
+    [SerializeField] private int maxInteration;
 
     private Transform cacheTransform;
 
@@ -23,6 +25,13 @@ namespace SheepDev.Bezier
     public int PointLenght => datas.Count;
     public int SectionLenght => (isLoop) ? PointLenght : PointLenght - 1;
     public float Size => datas[SectionLenght - 1].TotalSize;
+
+    public BezierCurve()
+    {
+      this.minAngle = 8;
+      this.maxAngle = 10;
+      this.maxInteration = 20;
+    }
 
     public void Add(int index, Point point, Space space = Space.World)
     {
@@ -202,7 +211,7 @@ namespace SheepDev.Bezier
 
         if (data.IsDataDirty) isForceCalculateRotation = true;
 
-        data.UpdateData(rotation, previousPoint, nextPoint, isForceCalculateRotation);
+        data.UpdateData(rotation, previousPoint, nextPoint, isForceCalculateRotation, minAngle, maxAngle, maxInteration);
         data.startSize = sizeTotal;
         rotation = data.rotationInfo.GetRotation(1);
         sizeTotal += data.intervalInfo.Size;

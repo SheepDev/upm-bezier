@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using static SheepDev.Bezier.Point;
-using System;
 
 namespace SheepDev.Bezier
 {
@@ -87,14 +86,19 @@ namespace SheepDev.Bezier
         }
       }
 
+      var property = serializedObject.FindProperty("onUpdated");
+
+      do
+      {
+        EditorGUILayout.PropertyField(property);
+      } while (property.Next(false));
+
       serializedObject.ApplyModifiedProperties();
 
       foreach (var behaviour in behaviours)
       {
         behaviour.InspectorGUI();
       }
-
-      base.OnInspectorGUI();
     }
 
     private void EditButtonGUI()
