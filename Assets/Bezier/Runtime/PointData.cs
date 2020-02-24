@@ -35,7 +35,7 @@ namespace SheepDev.Bezier
       }
     }
 
-    public void UpdateData(Quaternion baseRotation, Point previousPoint, Point nextPoint, bool isForceRotation = false)
+    public void UpdateData(Quaternion baseRotation, Point previousPoint, Point nextPoint, bool isForceRotation = false, float minAngle = 5, float maxAngle = 10, int maxInteration = 20)
     {
       UpdatePoint(previousPoint, nextPoint);
 
@@ -43,7 +43,7 @@ namespace SheepDev.Bezier
 
       if (isDataDirty || isForceRotation)
       {
-        rotationInfo = MathBezier.CalculateRotation(Point, nextPoint, baseRotation, intervalInfo, 5, 10, 20);
+        rotationInfo = MathBezier.CalculateRotation(Point, nextPoint, baseRotation, intervalInfo, minAngle, maxAngle, maxInteration);
       }
 
       isDataDirty = false;
