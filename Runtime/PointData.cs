@@ -77,6 +77,7 @@ namespace SheepDev.Bezier
   public struct RotationInfo
   {
     [SerializeField] internal List<Rotation> rotations;
+    [SerializeField] internal float plusRoll;
 
     public RotationInfo(List<Rotation> list) : this()
     {
@@ -91,6 +92,19 @@ namespace SheepDev.Bezier
     }
 
     public Quaternion GetRotation(float t)
+    {
+      var rotation = GetIntervalRotation(t);
+
+      if (plusRoll != 0)
+      {
+        var currentRoll = Mathf.Lerp(0, plusRoll, t);
+        rotation *= Quaternion.AngleAxis(currentRoll, Vector3.forward);
+      }
+
+      return rotation;
+    }
+
+    private Quaternion GetIntervalRotation(float t)
     {
       if (rotations.Count <= 1) return rotations[0].value;
       if (t >= 1) return rotations[Size - 1].value;
@@ -123,7 +137,7 @@ namespace SheepDev.Bezier
         rotations[index] = rotation;
       }
 
-      return new RotationInfo(rotations);
+      return new RotationInfo(rotations) { plusRoll = this.plusRoll };
     }
 
     public static RotationInfo Create()

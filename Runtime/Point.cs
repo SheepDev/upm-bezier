@@ -10,13 +10,14 @@ namespace SheepDev.Bezier
     [SerializeField] private Tangent tangentStart;
     [SerializeField] private Tangent tangentEnd;
     [SerializeField] internal float inheritRoll;
-    [SerializeField] private float roll;
+    [SerializeField] public float roll;
 
-    public Point(Vector3 position, Tangent tangentStart, Tangent tangentEnd) : this()
+    public Point(Vector3 position, Tangent tangentStart, Tangent tangentEnd, float roll = 0) : this()
     {
       this.position = position;
       this.tangentStart = tangentStart;
       this.tangentEnd = tangentEnd;
+      this.roll = roll;
     }
 
     public void SetTangentType(TangentType type, TangentSelect space)
@@ -47,11 +48,6 @@ namespace SheepDev.Bezier
       }
     }
 
-    public void SetRoll(float value)
-    {
-      roll = value;
-    }
-
     public Vector3 GetTangentPosition(TangentSelect tangent)
     {
       return position + ((tangent == TangentSelect.Start) ? tangentStart.position : tangentEnd.position);
@@ -60,11 +56,6 @@ namespace SheepDev.Bezier
     public TangentType GetTangentType(TangentSelect tangent)
     {
       return (tangent == TangentSelect.Start) ? tangentStart.type : tangentEnd.type;
-    }
-
-    public float GetRoll(bool isInheritRoll = false)
-    {
-      return (isInheritRoll) ? inheritRoll + roll : roll;
     }
 
     internal void CheckTangentVector(Point referencePoint, TangentSelect space)
