@@ -56,19 +56,19 @@ namespace SheepDev.Bezier
 
     public static RotationInfo CalculateRotation(Point p1, Point p2, Quaternion rotation, IntervalInfo intervalInfo, float minAngle, float maxAngle, int maxInteration)
     {
+      var size = intervalInfo.Size;
       var currentSize = 0f;
       var rotationInfo = RotationInfo.Create();
+      rotationInfo.plusRoll = p2.roll;
 
-      rotation = QuaternionUtility.ProjectOnDirection(rotation, GetTangent(p1, p2, 0));
+      var currentdirection = GetTangent(p1, p2, 0);
+      rotation = QuaternionUtility.ProjectOnDirection(rotation, currentdirection);
       rotationInfo.Add(0, rotation);
 
-      var size = intervalInfo.Size;
       while (currentSize < size)
       {
-        var t = intervalInfo.GetInverval(currentSize);
-        var currentdirection = GetTangent(p1, p2, t);
         var index = 0;
-        var lenght = 3f;
+        var lenght = .5f;
         var division = lenght;
         var isFinish = false;
 
@@ -80,8 +80,9 @@ namespace SheepDev.Bezier
         do
         {
           var nextSize = Mathf.Min(size, currentSize + lenght);
-          var nextT = intervalInfo.GetInverval(nextSize);
-          var nextDirection = GetTangent(p1, p2, nextT);
+          var interval = intervalInfo.GetInverval(nextSize);
+
+          var nextDirection = GetTangent(p1, p2, interval);
           var angle = Vector3.Angle(currentdirection, nextDirection);
 
           var isBounds = index < maxInteration;
@@ -110,21 +111,21 @@ namespace SheepDev.Bezier
             division /= 2f;
             lenght -= division;
             maxAngleSize = nextSize;
-            maxAngleInterval = GetTangent(p1, p2, nextT);
+            maxAngleInterval = GetTangent(p1, p2, interval);
           }
           else if (isBounds && isMinAngle)
           {
             division /= 2f;
             lenght += division;
             minAngleSize = nextSize;
-            minAngleInterval = GetTangent(p1, p2, nextT);
+            minAngleInterval = GetTangent(p1, p2, interval);
           }
           else
           {
             isFinish = true;
             rotation = QuaternionUtility.ProjectOnDirection(rotation, nextDirection);
-            var position = GetPosition(p1, p2, nextT);
-            rotationInfo.Add(nextT, rotation);
+            rotationInfo.Add(interval, rotation);
+            currentdirection = nextDirection;
           }
 
           index++;

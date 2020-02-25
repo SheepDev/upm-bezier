@@ -74,11 +74,11 @@ namespace SheepDev.Bezier
         var point = activeCurve.GetSelectPoint();
         var newTangentStartType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.Start), "Tangent Start Type");
         var newTangentEndType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.End), "Tangent End Type");
-        var roll = EditorGUILayout.FloatField("Roll", point.GetRoll());
+        var roll = EditorGUILayout.FloatField("Roll", point.roll);
 
         point.SetTangentType(newTangentStartType, TangentSelect.Start);
         point.SetTangentType(newTangentEndType, TangentSelect.End);
-        point.SetRoll(roll);
+        point.roll = roll;
 
         if (activeCurve.SetSelectPoint(point))
         {
