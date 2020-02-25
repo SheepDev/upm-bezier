@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using static SheepDev.Bezier.MathBezier;
 
@@ -80,8 +79,6 @@ namespace SheepDev.Bezier
       rotation = GetRotationByDistance(distance, space);
       return IsInsideBounds(distance, space);
     }
-
-
   }
 
   public enum DistanceSpace
