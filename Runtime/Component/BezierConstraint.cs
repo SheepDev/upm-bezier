@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SheepDev.Bezier
 {
-  public class BezierPointConstraint : MonoBehaviour
+  public class BezierConstraint : MonoBehaviour
   {
     public BezierCurve curve;
     public SnapType snapEnable;
