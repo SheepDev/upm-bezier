@@ -4,32 +4,40 @@ namespace SheepDev.Bezier
 {
   public class BezierConstraint : MonoBehaviour
   {
-    public BezierCurve curve;
-    public SnapType snapEnable;
-    public SnapType snap;
-    public int targetPointIndex;
+    [Header("Target")]
+    [SerializeField] private BezierCurve curve;
+    [SerializeField] private int targetIndex;
+
+    [Header("Snap Setting")]
+    public bool isSnapOnEnable;
+    public SnapSetting snapEnable;
+    public SnapSetting snapUpdate;
 
     private Vector3 lastPosition;
     private Transform cacheTransform;
 
+    public bool HasCurve => curve != null;
+    public int TargetIndex => targetIndex;
+    public Point TargetPoint => HasCurve ? curve.GetPoint(TargetIndex) : default;
+
+    public BezierCurve Curve => curve;
+
     private void OnEnable()
     {
-      if (curve is null)
+      if (!HasCurve)
       {
         enabled = false;
-        return;
       }
-
-      var transform = GetTransform();
-      Snap(snapEnable);
+      else if (isSnapOnEnable)
+      {
+        Snap(snapEnable);
+      }
     }
 
     private void Update()
     {
       var transform = GetTransform();
-      var targetPosition = transform.position;
-
-      if (lastPosition != targetPosition)
+      if (lastPosition != transform.position)
       {
         Snap();
       }
@@ -37,12 +45,12 @@ namespace SheepDev.Bezier
 
     public void Snap()
     {
-      Snap(snap);
+      Snap(snapUpdate);
     }
 
-    public void Snap(SnapType type)
+    public void Snap(SnapSetting type)
     {
-      if (type == SnapType.ConstraintToPoint)
+      if (type == SnapSetting.ConstraintToPoint)
       {
         ConstraintToPoint();
       }
@@ -52,26 +60,36 @@ namespace SheepDev.Bezier
       }
     }
 
-    [ContextMenu("Constraint To Point")]
     public void ConstraintToPoint()
     {
       var transform = GetTransform();
-      var point = curve.GetPoint(targetPointIndex);
+      var point = curve.GetPoint(targetIndex);
       var targetPosition = point.position;
 
       lastPosition = transform.position = targetPosition;
     }
 
-    [ContextMenu("Point To Constraint")]
     public void PointToConstraint()
     {
       var transform = GetTransform();
-      var point = curve.GetPoint(targetPointIndex);
+      var point = curve.GetPoint(targetIndex);
       var targetPosition = transform.position;
 
       point.position = targetPosition;
-      curve.SetPoint(targetPointIndex, point);
+      curve.SetPoint(targetIndex, point);
       lastPosition = targetPosition;
+    }
+
+    public void SetTargetIndex(int value)
+    {
+      var max = HasCurve ? curve.PointLenght - 1 : 0;
+      targetIndex = Mathf.Clamp(targetIndex, 0, max);
+    }
+
+    public void SetCurve(BezierCurve curve)
+    {
+      this.curve = curve;
+      enabled &= HasCurve;
     }
 
     public Transform GetTransform()
@@ -84,31 +102,20 @@ namespace SheepDev.Bezier
       return cacheTransform;
     }
 
-    private void OnValidate()
+    public void OnValidate()
     {
-      if (curve is null)
+      if (HasCurve)
+      {
+        SetTargetIndex(targetIndex);
+      }
+      else
       {
         enabled = false;
-        return;
-      }
-
-      targetPointIndex = Mathf.Clamp(targetPointIndex, 0, curve.PointLenght - 1);
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-      if (curve != null)
-      {
-        var transform = GetTransform();
-        var point = curve.GetPoint(targetPointIndex);
-
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(transform.position, point.position);
       }
     }
   }
 
-  public enum SnapType
+  public enum SnapSetting
   {
     ConstraintToPoint, PointToConstraint
   }
