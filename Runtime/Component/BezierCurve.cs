@@ -147,6 +147,30 @@ namespace SheepDev.Bezier
       return GetSection(SectionLenght - 1);
     }
 
+    public List<Waypoint> GetWaypoint(Space space = Space.World)
+    {
+      var count = (isLoop) ? PointLenght : PointLenght - 1;
+      var waypoints = new List<Waypoint>();
+
+      for (int index = 0; index < count; index++)
+      {
+        var data = datas[index];
+        var section = GetSection(index, space);
+        var rotationCount = data.rotationInfo.rotations.Count;
+        var isLast = index == count - 1;
+        var max = isLoop || !isLast ? rotationCount - 1 : rotationCount;
+
+        for (int i = 0; i < max; i++)
+        {
+          var info = data.rotationInfo.rotations[i];
+          section.GetPositionAndRotation(info.t, out var position, out var rotation);
+          waypoints.Add(new Waypoint(position, rotation));
+        }
+      }
+
+      return waypoints;
+    }
+
     private PointData GetPreviousData(int index)
     {
       var previousIndex = GetPreviousIndex(index);
