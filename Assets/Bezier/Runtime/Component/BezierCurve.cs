@@ -115,7 +115,7 @@ namespace SheepDev.Bezier
     public Point GetNextPoint(int index, Space space = Space.World)
     {
       index = GetNextIndex(index);
-      return GetPoint(index);
+      return GetPoint(index, space);
     }
 
     public SectionCurve GetSection(int index, Space space = Space.World)
