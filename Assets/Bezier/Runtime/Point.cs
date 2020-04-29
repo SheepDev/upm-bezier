@@ -9,7 +9,6 @@ namespace SheepDev.Bezier
     public Vector3 position;
     [SerializeField] private Tangent tangentStart;
     [SerializeField] private Tangent tangentEnd;
-    [SerializeField] internal float inheritRoll;
     [SerializeField] public float roll;
 
     public Point(Vector3 position, Tangent tangentStart, Tangent tangentEnd, float roll = 0) : this()
