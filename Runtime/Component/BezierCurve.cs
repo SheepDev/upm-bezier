@@ -230,8 +230,8 @@ namespace SheepDev.Bezier
       for (var index = 0; index < PointLenght; index++)
       {
         var data = datas[index];
-        var previousPoint = GetPreviousPoint(index);
-        var nextPoint = GetNextPoint(index);
+        var previousPoint = datas[GetPreviousIndex(index)].point;
+        var nextPoint = datas[GetNextIndex(index)].point;
 
         if (data.IsDataDirty) isForceCalculateRotation = true;
 
