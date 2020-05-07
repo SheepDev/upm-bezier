@@ -12,28 +12,43 @@ namespace SheepDev.Bezier.Utility
     [SerializeField] [Range(0f, 1f)] private float t;
     [SerializeField] [Range(0f, 1f)] private float porcent;
 
-    public float Distance => distance;
     public int SectionIndex => sectionIndex;
+    public float Distance => distance;
     public float Porcent { get => porcent; set => porcent = Mathf.Clamp01(value); }
     public float T { get => t; set => t = Mathf.Clamp01(value); }
 
-    public Vector3 GetTargetPosition(BezierCurve curve)
+    public Vector3 GetTargetPosition(BezierCurve curve, bool isBackward = false)
     {
       if (curve == null) return Vector3.zero;
 
-      var section = GetSection(curve);
+      var section = GetSection(curve, isBackward);
 
       switch (setting)
       {
         case PositionSetting.Default:
-          return section.GetPositionByDistance(distance, DistanceSpace.Total);
+          return section.GetPositionByDistance(CalculateDistance(curve, isBackward), DistanceSpace.Total);
         case PositionSetting.Porcent:
-          return section.GetPositionByDistance(curve.Size * porcent, DistanceSpace.Total);
+          return section.GetPositionByDistance(CalculatePorcent(curve, isBackward), DistanceSpace.Total);
         case PositionSetting.Section:
-          return section.GetPosition(t);
+          return section.GetPosition(CalculateT(isBackward));
       }
 
       throw new System.Exception();
+    }
+
+    public float CalculateDistance(BezierCurve curve, bool isBackward = false)
+    {
+      return isBackward ? curve.Size - distance : distance;
+    }
+
+    public float CalculatePorcent(BezierCurve curve, bool isBackward = false)
+    {
+      return curve.Size * (isBackward ? 1 - porcent : porcent);
+    }
+
+    public float CalculateT(bool isBackward = false)
+    {
+      return isBackward ? 1 - t : t;
     }
 
     public void SetSectionIndex(BezierCurve curve, int index)
@@ -58,14 +73,14 @@ namespace SheepDev.Bezier.Utility
       }
     }
 
-    public SectionCurve GetSection(BezierCurve curve)
+    public SectionCurve GetSection(BezierCurve curve, bool isBackward = false)
     {
       switch (setting)
       {
         case PositionSetting.Default:
-          return GetSection(curve, distance);
+          return GetSection(curve, CalculateDistance(curve, isBackward));
         case PositionSetting.Porcent:
-          return GetSection(curve, curve.Size * porcent);
+          return GetSection(curve, CalculatePorcent(curve, isBackward));
         case PositionSetting.Section:
           return GetSection(curve, sectionIndex);
       }

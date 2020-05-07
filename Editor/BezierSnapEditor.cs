@@ -66,6 +66,8 @@ namespace SheepDev.Bezier
 
       EditorGUI.BeginDisabledGroup(!isValid);
       EditorGUILayout.Space();
+      EditorGUILayout.PropertyField(serializedObject.FindProperty("isBackward"));
+      EditorGUILayout.Space();
       positionEditor.PositionSettingProperty(serializedObject.FindProperty("position"));
       EditorGUILayout.Space();
       rotationEditor.RotationSettingProperty(serializedObject.FindProperty("rotation"));
