@@ -7,6 +7,7 @@ namespace SheepDev.Bezier
   public class BezierSnap : MonoBehaviour
   {
     [SerializeField] private BezierCurve curve;
+    public bool isBackward;
     public BezierPosition position;
     public BezierRotation rotation;
     private Transform cacheTransform;
@@ -46,7 +47,7 @@ namespace SheepDev.Bezier
 
     public Vector3 GetSnapPosition()
     {
-      return position.GetTargetPosition(curve);
+      return position.GetTargetPosition(curve, isBackward);
     }
 
     public bool GetSnapRotation(out Quaternion targetRotation)
@@ -57,16 +58,16 @@ namespace SheepDev.Bezier
 
     private bool GetRotation(Transform transform, out Quaternion targetRotation)
     {
-      var section = position.GetSection(curve);
+      var section = position.GetSection(curve, isBackward);
 
       switch (position.setting)
       {
         case PositionSetting.Default:
-          return rotation.GetTargetRotationByDistance(transform, section, position.Distance, out targetRotation);
+          return rotation.GetTargetRotationByDistance(transform, section, position.CalculateDistance(curve, isBackward), out targetRotation);
         case PositionSetting.Porcent:
-          return rotation.GetTargetRotationByDistance(transform, section, curve.Size * position.Porcent, out targetRotation);
+          return rotation.GetTargetRotationByDistance(transform, section, position.CalculatePorcent(curve, isBackward), out targetRotation);
         case PositionSetting.Section:
-          return rotation.GetTargetRotation(transform, position.T, section, out targetRotation);
+          return rotation.GetTargetRotation(transform, position.CalculateT(), section, out targetRotation);
       }
 
       throw new System.Exception();
