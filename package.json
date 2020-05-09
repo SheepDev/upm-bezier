@@ -1,6 +1,6 @@
 {
   "name": "com.sheepdev.bezier",
-  "version": "1.6.3-preview",
+  "version": "1.6.4-preview",
   "displayName": "Bezier",
   "description": "Simple way to create and manipulate bezier to use them in many ways",
   "unity": "2018.3",
