@@ -20,7 +20,7 @@ namespace SheepDev.Bezier
       if (DisableIsInvalid()) return;
     }
 
-    private void Update()
+    private void LateUpdate()
     {
       Snap();
     }
