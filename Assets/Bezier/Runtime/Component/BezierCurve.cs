@@ -242,6 +242,29 @@ namespace SheepDev.Bezier
       }
     }
 
+    [ContextMenu("Force Update Data")]
+    private void ForceUpdateData()
+    {
+      var firstPoint = GetPoint(0, Space.Self);
+      var secondPoint = GetPoint(1, Space.Self);
+      var forward = MathBezier.GetTangent(firstPoint, secondPoint, 0);
+      var rotation = Quaternion.LookRotation(forward, GetTransform().up);
+
+      var isForceCalculateRotation = true;
+      var sizeTotal = 0f;
+
+      for (var index = 0; index < PointLenght; index++)
+      {
+        var data = datas[index];
+        var previousPoint = datas[GetPreviousIndex(index)].point;
+        var nextPoint = datas[GetNextIndex(index)].point;
+        data.UpdateData(rotation, previousPoint, nextPoint, isForceCalculateRotation, minAngle, maxAngle, maxInteration);
+        data.startSize = sizeTotal;
+        rotation = data.rotationInfo.GetRotation(1);
+        sizeTotal += data.intervalInfo.Size;
+      }
+    }
+
     private void OnValidate()
     {
       var isInvalidPoints = datas is null || datas.Count < 2;
