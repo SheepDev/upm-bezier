@@ -29,7 +29,7 @@ namespace SheepDev.Bezier
       if (!isEqual)
       {
         activeCurve.repaint += Repaint;
-        activeCurve.isEdit = IsEdit;
+        activeCurve.Edit(IsEdit);
         activeCurve.pointIndex = SelectIndexPoint;
         this.activeCurve = activeCurve;
       }
@@ -37,9 +37,11 @@ namespace SheepDev.Bezier
 
     private void OnDisable()
     {
+      Tools.hidden = false;
+
       if (activeCurve.IsEdit && Selection.activeGameObject == null)
       {
-        IsEdit = activeCurve.isEdit;
+        IsEdit = activeCurve.IsEdit;
         SelectIndexPoint = activeCurve.pointIndex;
         Selection.activeGameObject = activeCurve.curve.gameObject;
       }
@@ -132,7 +134,7 @@ namespace SheepDev.Bezier
     public BezierCurve curve;
     public SelectBezierPart bezierPart;
 
-    internal bool isEdit;
+    private bool isEdit;
     internal int pointIndex;
 
     public delegate void Callback();
