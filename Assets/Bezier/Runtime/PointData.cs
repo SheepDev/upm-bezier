@@ -8,7 +8,7 @@ namespace SheepDev.Bezier
   [Serializable]
   public class PointData
   {
-    [SerializeField] internal Point point;
+    public Point point;
     [SerializeField] private bool isPointDirty;
     [SerializeField] private bool isDataDirty;
     public IntervalInfo intervalInfo;

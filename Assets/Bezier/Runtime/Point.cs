@@ -6,9 +6,9 @@ namespace SheepDev.Bezier
   [Serializable]
   public struct Point
   {
-    public Vector3 position;
-    [SerializeField] private Tangent tangentStart;
-    [SerializeField] private Tangent tangentEnd;
+    [HideInInspector] public Vector3 position;
+    [SerializeField] public Tangent tangentStart;
+    [SerializeField] public Tangent tangentEnd;
     [SerializeField] public float roll;
 
     public Point(Vector3 position, Tangent tangentStart, Tangent tangentEnd, float roll = 0) : this()

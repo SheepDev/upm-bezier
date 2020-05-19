@@ -5,7 +5,7 @@ namespace SheepDev.Bezier
   [System.Serializable]
   public struct Tangent
   {
-    public Vector3 position;
+    [HideInInspector] public Vector3 position;
     public TangentType type;
 
     public Tangent(Vector3 position, TangentType type) : this()
