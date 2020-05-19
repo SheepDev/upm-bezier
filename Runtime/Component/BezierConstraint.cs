@@ -76,7 +76,7 @@ namespace SheepDev.Bezier
       var targetPosition = transform.position;
 
       point.position = targetPosition;
-      curve.SetPoint(targetIndex, point);
+      // curve.SetPoint(targetIndex, point);
       lastPosition = targetPosition;
     }
 

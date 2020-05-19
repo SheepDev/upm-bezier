@@ -103,7 +103,10 @@ namespace SheepDev.Bezier
       var colorTangentEnd = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
       var colorTangentStart = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
 
-      for (var index = 0; index < curve.PointLenght; index++)
+      var serializedObject = select.SerializedObject;
+      var datasProperty = serializedObject.FindProperty("datas");
+
+      for (var index = 0; index < datasProperty.arraySize; index++)
       {
         var point = curve.GetPoint(index);
         var positionPoint = point.position;
@@ -116,52 +119,86 @@ namespace SheepDev.Bezier
 
         if (select.IsEdit)
         {
-          if (IsSplitSpline)
+          if (select.GetPointIndex() != index)
+          {
+            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
+          }
+          else if (IsSplitSpline)
           {
             draws.Add(new DrawAddButtonBezierPoint(select, index));
-            draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
           }
           else if (IsRemovePoint)
           {
             draws.Add(new DrawRemoveButtonBezierPoint(select, index));
-          }
-          else if (select.PointIndex != index)
-          {
-            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
           }
         }
         else
         {
           draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
         }
-
-        draws.Add(new DrawTangent(positionPoint, positionTangentStart, depthTangentStart, colorTangentStart));
-        draws.Add(new DrawTangent(positionPoint, positionTangentEnd, depthTangentEnd, colorTangentEnd));
       }
 
-      if (select.IsSelectPoint && !(IsSplitSpline ^ IsRemovePoint))
+      if (select.IsSelectPoint)
       {
-        var index = select.PointIndex;
-        var point = select.GetSelectPoint();
+        var index = select.GetPointIndex();
+        var previousIndex = (int)Mathf.Repeat(index - 1, datasProperty.arraySize);
+        var nextIndex = (int)Mathf.Repeat(index + 1, datasProperty.arraySize);
 
-        Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
-        Handles.DrawDottedLine(point.position, point.GetTangentPosition(TangentSelect.Start), 5);
-        Handles.color = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
-        Handles.DrawDottedLine(point.position, point.GetTangentPosition(TangentSelect.End), 5);
+        var previousPointProperty = GetPoint(datasProperty, previousIndex);
+        var pointProperty = GetPoint(datasProperty, index);
+        var nextPointProperty = GetPoint(datasProperty, nextIndex);
 
-        var handlePosition = GetPointPartPosition(point, select.bezierPart);
-        var handleDepth = GetDepth(handlePosition);
-        draws.Add(new DrawHandleSelectBezierPart(select, handlePosition, handleDepth));
+        var previousPoint = curve.GetPoint(previousIndex);
+        var point = curve.GetPoint(index);
+        var nextPoint = curve.GetPoint(nextIndex);
 
-        foreach (SelectBezierPart part in Enum.GetValues(typeof(SelectBezierPart)))
+        DrawSelectBezierPart(select, point);
+
+        EditorGUI.BeginChangeCheck();
+        var pointPosition = GetPointPartPosition(point, select.bezierPart);
+        var newPosition = Handles.PositionHandle(pointPosition, Quaternion.identity);
+
+        if (EditorGUI.EndChangeCheck())
         {
-          if (select.bezierPart == part) continue;
+          var worldToLocalMatrix = curve.GetTransform().worldToLocalMatrix;
+          switch (select.bezierPart)
+          {
+            case SelectBezierPart.Point:
+              point.position = newPosition;
+              PointUtility.VectorTangent(ref previousPoint, ref point, ref nextPoint);
+              PointUtilityEditor.SetPoint(previousPointProperty, previousPoint, worldToLocalMatrix);
+              PointUtilityEditor.SetPoint(nextPointProperty, nextPoint, worldToLocalMatrix);
+              break;
+            case SelectBezierPart.TangentStart:
+              point.SetTangentPosition(newPosition, TangentSelect.Start);
+              break;
+            case SelectBezierPart.TangentEnd:
+              point.SetTangentPosition(newPosition, TangentSelect.End);
+              break;
+          }
 
-          var position = GetPointPartPosition(point, part);
-          var depth = GetDepth(position);
-          var color = GetHandleColorBySelectPart(part);
-          draws.Add(new DrawButtonSelectBezierPart(select, position, depth, part, color));
+          PointUtilityEditor.SetPoint(pointProperty, point, worldToLocalMatrix);
         }
+      }
+    }
+
+    public SerializedProperty GetPoint(SerializedProperty data, int index)
+    {
+      index = (int)Mathf.Repeat(index, data.arraySize);
+      var pointDataProperty = data.GetArrayElementAtIndex(index);
+      return pointDataProperty.FindPropertyRelative("point");
+    }
+
+    public void DrawSelectBezierPart(SelectCurve select, Point point)
+    {
+      foreach (SelectBezierPart part in Enum.GetValues(typeof(SelectBezierPart)))
+      {
+        if (select.bezierPart == part) continue;
+
+        var position = GetPointPartPosition(point, part);
+        var depth = GetDepth(position);
+        var color = GetHandleColorBySelectPart(part);
+        draws.Add(new DrawButtonSelectBezierPart(select, position, depth, part, color));
       }
     }
 
@@ -363,62 +400,11 @@ namespace SheepDev.Bezier
       }
     }
 
-    struct DrawHandleSelectBezierPart : DrawStack
-    {
-      private readonly SelectCurve select;
-      private readonly Vector3 position;
-      private readonly float depth;
-
-      public float Depth => depth;
-      public float Layer => 2;
-
-      public DrawHandleSelectBezierPart(SelectCurve select, Vector3 position, float depth)
-      {
-        this.select = select;
-        this.position = position;
-        this.depth = depth;
-      }
-
-      public int CompareTo(DrawStack other)
-      {
-        var layerCompare = Layer.CompareTo(other.Layer);
-        return (layerCompare != 0) ? layerCompare : Depth.CompareTo(other.Depth);
-      }
-
-      public void Draw()
-      {
-        var point = select.GetSelectPoint();
-        var isGlobal = Tools.pivotRotation == PivotRotation.Global;
-        var rotation = isGlobal ? Quaternion.identity : select.curve.GetTransform().rotation;
-
-        EditorGUI.BeginChangeCheck();
-        var newPosition = Handles.PositionHandle(position, rotation);
-
-        if (EditorGUI.EndChangeCheck())
-        {
-          switch (select.bezierPart)
-          {
-            case SelectBezierPart.Point:
-              point.position = newPosition;
-              break;
-            case SelectBezierPart.TangentStart:
-              point.SetTangentPosition(newPosition, TangentSelect.Start);
-              break;
-            case SelectBezierPart.TangentEnd:
-              point.SetTangentPosition(newPosition, TangentSelect.End);
-              break;
-          }
-
-          select.SetSelectPoint(point);
-        }
-      }
-    }
-
     struct DrawAddButtonBezierPoint : DrawStack
     {
       private readonly SelectCurve select;
-      private readonly int index;
       private readonly Vector3 position;
+      private readonly int index;
       private readonly float depth;
 
       public float Depth => depth;
@@ -444,7 +430,7 @@ namespace SheepDev.Bezier
         Handles.color = Color.blue;
         if (HandleExtension.DrawButton(position, Handles.SphereHandleCap, .3f))
         {
-          select.AddPoint(index, .5f);
+          select.AddPoint(this.index, .5f);
           BezierGUI3D.IsSplitSpline = false;
         }
       }

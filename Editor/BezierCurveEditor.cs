@@ -23,7 +23,7 @@ namespace SheepDev.Bezier
 
     private void OnEnable()
     {
-      var activeCurve = new SelectCurve(target as BezierCurve);
+      var activeCurve = new SelectCurve(target as BezierCurve, serializedObject);
       var isEqual = this.activeCurve != null && this.activeCurve.Equals(activeCurve);
 
       if (!isEqual)
@@ -60,42 +60,32 @@ namespace SheepDev.Bezier
         behaviour.BeforeSceneGUI(activeCurve);
         behaviour.SceneGUI(SceneView.lastActiveSceneView);
       }
+
+      if (activeCurve.SerializedObject.hasModifiedProperties)
+      {
+        activeCurve.SerializedObject.ApplyModifiedProperties();
+      }
     }
 
     public override void OnInspectorGUI()
     {
       EditButtonGUI();
 
-      var isLoopProperty = serializedObject.FindProperty("isLoop");
-      EditorGUILayout.PropertyField(isLoopProperty);
+      var serializedObject = activeCurve.SerializedObject;
+      EditorGUILayout.PropertyField(serializedObject.FindProperty("isLoop"));
 
       if (activeCurve.IsEdit && activeCurve.IsSelectPoint)
       {
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Active Point: " + activeCurve.PointIndex);
-        var point = activeCurve.GetSelectPoint();
-        var newTangentStartType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.Start), "Tangent Start Type");
-        var newTangentEndType = EnumTangentTypeGUI(point.GetTangentType(TangentSelect.End), "Tangent End Type");
-        var roll = EditorGUILayout.FloatField("Roll", point.roll);
-
-        point.SetTangentType(newTangentStartType, TangentSelect.Start);
-        point.SetTangentType(newTangentEndType, TangentSelect.End);
-        point.roll = roll;
-
-        if (activeCurve.SetSelectPoint(point))
-        {
-          SceneView.RepaintAll();
-        }
+        var dataProperty = serializedObject.FindProperty("datas");
+        var pointDataProperty = dataProperty.GetArrayElementAtIndex(activeCurve.GetPointIndex());
+        var pointProperty = pointDataProperty.FindPropertyRelative("point");
+        EditorGUILayout.PropertyField(pointProperty, new GUIContent($"Active Point {activeCurve.pointIndex}"));
       }
 
-      var property = serializedObject.FindProperty("onUpdated");
-
-      do
+      if (serializedObject.hasModifiedProperties)
       {
-        EditorGUILayout.PropertyField(property);
-      } while (property.Next(false));
-
-      serializedObject.ApplyModifiedProperties();
+        serializedObject.ApplyModifiedProperties();
+      }
 
       foreach (var behaviour in behaviours)
       {
@@ -133,6 +123,7 @@ namespace SheepDev.Bezier
   {
     public BezierCurve curve;
     public SelectBezierPart bezierPart;
+    private SerializedObject serializedCurve;
 
     private bool isEdit;
     internal int pointIndex;
@@ -141,13 +132,19 @@ namespace SheepDev.Bezier
     public Callback repaint;
 
     public bool IsEdit => isEdit;
-    public int PointIndex => pointIndex;
-    public bool IsSelectPoint => PointIndex >= 0;
+    public bool IsSelectPoint => GetPointIndex() >= 0;
+    public SerializedObject SerializedObject => serializedCurve;
 
-    public SelectCurve(BezierCurve curve)
+    public SelectCurve(BezierCurve curve, SerializedObject serializedObject)
     {
       this.curve = curve;
+      serializedCurve = serializedObject;
       pointIndex = -1;
+    }
+
+    public int GetPointIndex()
+    {
+      return pointIndex = (int)Mathf.Repeat(pointIndex, curve.PointLenght);
     }
 
     public void EditToggle()
@@ -166,18 +163,38 @@ namespace SheepDev.Bezier
 
     public void AddPoint(int index, float t)
     {
-      Undo.RecordObject(curve, "Split Curver");
-      curve.Split(index, t);
+      var dataProperty = serializedCurve.FindProperty("datas");
+      var worldToLocalMatrix = curve.GetTransform().worldToLocalMatrix;
+
+      var nextIndex = (int)Mathf.Repeat(index + 1, dataProperty.arraySize);
+      var point = curve.GetPoint(index, Space.Self);
+      var nextPoint = curve.GetPoint(nextIndex, Space.Self);
+      var splitPoint = MathBezier.Split(point, nextPoint, t, out var tangentStart, out var tangentEnd);
+
+      point.SetTangentPosition(tangentStart, TangentSelect.Start);
+      nextPoint.SetTangentPosition(tangentEnd, TangentSelect.End);
+
+      var pointProperty = dataProperty.GetArrayElementAtIndex(index)
+        .FindPropertyRelative("point");
+      PointUtilityEditor.SetPoint(pointProperty, point, worldToLocalMatrix);
+
+      var nextPointProperty = dataProperty.GetArrayElementAtIndex(nextIndex)
+        .FindPropertyRelative("point");
+      PointUtilityEditor.SetPoint(nextPointProperty, nextPoint, worldToLocalMatrix);
+
+      var insertIndex = index + 1;
+      dataProperty.InsertArrayElementAtIndex(insertIndex);
+      var splitPointDataProperty = dataProperty.GetArrayElementAtIndex(insertIndex)
+        .FindPropertyRelative("point");
+      PointUtilityEditor.SetPoint(splitPointDataProperty, splitPoint, worldToLocalMatrix);
+
+      pointIndex = insertIndex;
     }
 
     public void RemovePoint(int index)
     {
-      if (curve.PointLenght > 2)
-      {
-        Undo.RecordObject(curve, "Remove Point Curver");
-        pointIndex = -1;
-        curve.Remove(index);
-      }
+      var dataProperty = serializedCurve.FindProperty("datas");
+      dataProperty.DeleteArrayElementAtIndex(index);
     }
 
     public void SetPointIndex(int value)
@@ -186,21 +203,7 @@ namespace SheepDev.Bezier
       repaint.Invoke();
     }
 
-    public bool SetSelectPoint(Point point)
-    {
-      var oldPoint = curve.GetPoint(PointIndex);
-
-      if (!oldPoint.Equals(point))
-      {
-        Undo.RecordObject(curve, "Set Point " + PointIndex + " in " + curve.GetHashCode());
-        curve.SetPoint(PointIndex, point);
-        return true;
-      }
-
-      return false;
-    }
-
-    public Point GetSelectPoint() => (IsSelectPoint) ? curve.GetPoint(PointIndex) : default;
+    public Point GetSelectPoint() => (IsSelectPoint) ? curve.GetPoint(GetPointIndex()) : default;
 
     public override bool Equals(object obj)
     {
