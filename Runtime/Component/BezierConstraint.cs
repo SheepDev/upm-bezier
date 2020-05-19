@@ -17,7 +17,7 @@ namespace SheepDev.Bezier
     private Transform cacheTransform;
 
     public bool HasCurve => curve != null;
-    public int TargetIndex => targetIndex;
+    public int TargetIndex => targetIndex = (int)Mathf.Repeat(targetIndex, curve.PointLenght);
     public Point TargetPoint => HasCurve ? curve.GetPoint(TargetIndex) : default;
 
     public BezierCurve Curve => curve;
@@ -63,7 +63,7 @@ namespace SheepDev.Bezier
     public void ConstraintToPoint()
     {
       var transform = GetTransform();
-      var point = curve.GetPoint(targetIndex);
+      var point = curve.GetPoint(TargetIndex);
       var targetPosition = point.position;
 
       lastPosition = transform.position = targetPosition;
@@ -72,18 +72,18 @@ namespace SheepDev.Bezier
     public void PointToConstraint()
     {
       var transform = GetTransform();
-      var point = curve.GetPoint(targetIndex);
+      var point = curve.GetPoint(TargetIndex);
       var targetPosition = transform.position;
 
       point.position = targetPosition;
-      // curve.SetPoint(targetIndex, point);
+      curve.SetPoint(TargetIndex, point);
       lastPosition = targetPosition;
     }
 
     public void SetTargetIndex(int value)
     {
       var max = HasCurve ? curve.PointLenght - 1 : 0;
-      targetIndex = Mathf.Clamp(targetIndex, 0, max);
+      targetIndex = Mathf.Clamp(TargetIndex, 0, max);
     }
 
     public void SetCurve(BezierCurve curve)
@@ -106,7 +106,7 @@ namespace SheepDev.Bezier
     {
       if (HasCurve)
       {
-        SetTargetIndex(targetIndex);
+        SetTargetIndex(TargetIndex);
       }
       else
       {

@@ -33,57 +33,46 @@ namespace SheepDev.Bezier
       this.maxInteration = 20;
     }
 
-    // public void Add(int index, Point point, Space space = Space.World)
-    // {
-    //   if (space == Space.World)
-    //   {
-    //     point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
-    //   }
+    public void Add(int index, Point point, Space space = Space.World)
+    {
+      if (space == Space.World)
+      {
+        point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
+      }
 
-    //   datas.Insert(index, new PointData(point));
-    //   onUpdated.Invoke();
-    // }
+      datas.Insert(index, new PointData(point));
+      onUpdated.Invoke();
+    }
 
-    // public void Remove(int index)
-    // {
-    //   datas.RemoveAt(index);
-    //   onUpdated.Invoke();
-    // }
+    public void Split(int index, float t)
+    {
+      var data = datas[index];
+      var nextData = GetNextData(index);
+      var splitPoint = MathBezier.Split(data.Point, nextData.Point, t, out var tangentStart, out var tangentEnd);
 
-    // public void Split(int index, float t)
-    // {
-    //   var data = datas[index];
-    //   var nextData = GetNextData(index);
-    //   var splitPoint = MathBezier.Split(data.Point, nextData.Point, t, out var tangentStart, out var tangentEnd);
+      data.point.SetTangentPosition(tangentStart, TangentSelect.Start);
+      nextData.point.SetTangentPosition(tangentEnd, TangentSelect.End);
 
-    //   data.point.SetTangentPosition(tangentStart, TangentSelect.Start);
-    //   nextData.point.SetTangentPosition(tangentEnd, TangentSelect.End);
+      var splitIndex = index + 1;
+      Add(splitIndex, splitPoint, Space.Self);
+    }
 
-    //   var splitIndex = index + 1;
-    //   Add(splitIndex, splitPoint, Space.Self);
-    // }
+    public void SetPoint(int index, Point point, Space space = Space.World)
+    {
+      if (space == Space.World)
+      {
+        point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
+      }
 
-    // public void SetPoint(int index, Point point, Space space = Space.World)
-    // {
-    //   if (space == Space.World)
-    //   {
-    //     point = Point.ConvertPoint(point, GetTransform().worldToLocalMatrix);
-    //   }
+      var data = datas[index];
+      if (data.Point.Equals(point)) return;
 
-    //   var data = datas[index];
-    //   if (data.Point.Equals(point)) return;
+      data.SetPoint(point);
+      GetPreviousData(index).MarkDirty();
+      GetNextData(index).MarkDirty();
 
-    //   data.SetPoint(point);
-    //   GetPreviousData(index).MarkDirty();
-    //   GetNextData(index).MarkDirty();
-
-    //   onUpdated.Invoke();
-    // }
-
-    // public void SetPointRoll(int index, float roll)
-    // {
-    //   onUpdated.Invoke();
-    // }
+      onUpdated.Invoke();
+    }
 
     public void SetLoop(bool isLoop)
     {
