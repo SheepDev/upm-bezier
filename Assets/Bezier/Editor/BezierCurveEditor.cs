@@ -73,6 +73,7 @@ namespace SheepDev.Bezier
 
       var serializedObject = activeCurve.SerializedObject;
       EditorGUILayout.PropertyField(serializedObject.FindProperty("isLoop"));
+      EditorGUILayout.PropertyField(serializedObject.FindProperty("onUpdated"));
 
       if (activeCurve.IsEdit && activeCurve.IsSelectPoint)
       {
