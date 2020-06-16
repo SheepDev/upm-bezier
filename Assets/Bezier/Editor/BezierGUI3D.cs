@@ -32,7 +32,7 @@ namespace SheepDev.Bezier
 
     public override void BeforeSceneGUI(SelectCurve select)
     {
-      DrawCurve(select.curve);
+      DrawCurve(select.Curve);
 
       if (select.IsEdit)
       {
@@ -41,7 +41,7 @@ namespace SheepDev.Bezier
 
       if (isShowRotation)
       {
-        var curve = select.curve;
+        var curve = select.Curve;
         var distance = 0f;
         var stepDistance = curve.Size / curveDivision;
 
@@ -98,7 +98,7 @@ namespace SheepDev.Bezier
 
     private void DrawHandleBezier(SelectCurve select)
     {
-      var curve = select.curve;
+      var curve = select.Curve;
       var colorPoint = GetHandleColorBySelectPart(SelectBezierPart.Point);
       var colorTangentEnd = GetHandleColorBySelectPart(SelectBezierPart.TangentEnd);
       var colorTangentStart = GetHandleColorBySelectPart(SelectBezierPart.TangentStart);
@@ -119,11 +119,7 @@ namespace SheepDev.Bezier
 
         if (select.IsEdit)
         {
-          if (select.GetPointIndex() != index)
-          {
-            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
-          }
-          else if (IsSplitSpline)
+          if (IsSplitSpline)
           {
             draws.Add(new DrawAddButtonBezierPoint(select, index));
           }
@@ -131,12 +127,18 @@ namespace SheepDev.Bezier
           {
             draws.Add(new DrawRemoveButtonBezierPoint(select, index));
           }
+          else if (select.GetPointIndex() != index)
+          {
+            draws.Add(new DrawButtonSelectIndex(select, positionPoint, depthPoint, index));
+          }
         }
         else
         {
           draws.Add(new DrawDot(positionPoint, depthPoint, colorPoint));
         }
       }
+
+      if (IsSplitSpline || IsRemovePoint) return;
 
       if (select.IsSelectPoint)
       {
@@ -414,7 +416,7 @@ namespace SheepDev.Bezier
       {
         this.select = select;
         this.index = index;
-        var section = select.curve.GetSection(index);
+        var section = select.Curve.GetSection(index);
         position = section.GetPosition(.5f);
         depth = GetDepth(position);
       }
@@ -451,7 +453,7 @@ namespace SheepDev.Bezier
         this.select = select;
         this.index = index;
 
-        var point = select.curve.GetPoint(index);
+        var point = select.Curve.GetPoint(index);
         this.position = point.position;
         depth = GetDepth(position);
       }
