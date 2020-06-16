@@ -69,7 +69,7 @@ namespace SheepDev.Bezier
     private Bounds CurveBounds(SelectCurve selectCurve)
     {
       var bounds = new Bounds();
-      var curve = selectCurve.curve;
+      var curve = selectCurve.Curve;
 
       for (var index = 0; index < curve.PointLenght; index++)
       {
