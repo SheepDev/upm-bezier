@@ -34,7 +34,7 @@ namespace SheepDev.Bezier
       }
     }
 
-    private void Update()
+    private void LateUpdate()
     {
       var transform = GetTransform();
       if (lastPosition != transform.position)
