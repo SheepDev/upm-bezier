@@ -52,6 +52,15 @@ namespace SheepDev.Bezier
       EditorGUILayout.PropertyField(serializedObject.FindProperty("isLoop"));
       EditorGUILayout.PropertyField(serializedObject.FindProperty("onUpdated"));
 
+      if (GUILayout.Button("Call Update event"))
+        activeCurve.Curve.onUpdated.Invoke();
+
+      if (GUILayout.Button("Force Data Update"))
+      {
+        activeCurve.Curve.ForceUpdateData();
+        activeCurve.Curve.onUpdated.Invoke();
+      }
+
       if (activeCurve.IsEdit && activeCurve.IsSelectPoint)
       {
         var dataProperty = serializedObject.FindProperty("datas");

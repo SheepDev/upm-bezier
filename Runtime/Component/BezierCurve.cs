@@ -232,7 +232,7 @@ namespace SheepDev.Bezier
     }
 
     [ContextMenu("Force Update Data")]
-    private void ForceUpdateData()
+    public void ForceUpdateData()
     {
       var firstPoint = GetPoint(0, Space.Self);
       var secondPoint = GetPoint(1, Space.Self);
