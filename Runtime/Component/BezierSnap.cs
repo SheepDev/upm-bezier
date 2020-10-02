@@ -18,11 +18,14 @@ namespace SheepDev.Bezier
     private void OnEnable()
     {
       if (DisableIsInvalid()) return;
+      curve.onUpdated.AddListener(Snap);
+      Snap();
     }
 
-    private void LateUpdate()
+    private void OnDisable()
     {
-      Snap();
+      if (HasBezier)
+        curve.onUpdated.RemoveListener(Snap);
     }
 
     [ContextMenu("Snap in Bezier")]
