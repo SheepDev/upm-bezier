@@ -83,7 +83,7 @@ namespace SheepDev.Bezier
     public void SetTargetIndex(int value)
     {
       var max = HasCurve ? curve.PointLenght - 1 : 0;
-      targetIndex = Mathf.Clamp(TargetIndex, 0, max);
+      targetIndex = Mathf.Clamp(value, 0, max);
     }
 
     public void SetCurve(BezierCurve curve)
